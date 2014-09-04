@@ -1,0 +1,23 @@
+#!/bin/sh
+
+set -o errexit
+set -o nounset
+set -o noclobber
+
+if [ ! -e ./util/install ]; then
+  echo "$0 must be run from the top of the project tree"
+  exit
+fi
+
+pkg=rpf
+
+CPUS=1
+if [ -f /proc/cpuinfo ]; then
+  CPUS=$(grep ^processor /proc/cpuinfo  | wc -l)
+fi
+
+cp src/Makevars.in src/Makevars
+echo >> src/Makevars
+echo "-include autodep" >> src/Makevars
+
+MAKEFLAGS="-j $CPUS" R CMD INSTALL .

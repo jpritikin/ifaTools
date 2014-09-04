@@ -1,0 +1,11 @@
+#!/bin/sh
+
+if ! test -x util/test; then
+  echo "$0: Error, run from the top level"
+  exit 1
+fi
+
+time operf R --no-save <<EOF
+library(testthat)
+test_dir("inst/demo/", reporter="summary")
+EOF

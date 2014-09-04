@@ -1,0 +1,11 @@
+.gitignore
+.Rhistory
+.gdbinit
+.*.tar.gz
+^vignettes/auto
+^vignettes/*.html
+^vignettes/*.md
+^vignettes/figure
+^util/
+^staging
+.dir-locals.el
