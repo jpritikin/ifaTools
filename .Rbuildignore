@@ -9,3 +9,5 @@
 ^util/
 ^staging
 .dir-locals.el
+^.*\.Rproj$
+^\.Rproj\.user$

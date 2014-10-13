@@ -1,28 +1,25 @@
 Package: ifaTools
 Type: Package
-Title: Toolkit for Item Factor Analysis with OpenMx
+Title: Toolkit for Item Factor Analysis
 Version: 0.01
 Date: 2014-09-03
 Authors@R: c(person("Joshua",family="Pritikin", email="jpritikin@pobox.com",
     role=c('cre','aut')))
 Maintainer: Joshua Pritikin <jpritikin@pobox.com>
-Description: This package serves as a tutorial and collections of demo scripts for Item Factor Analysis with OpenMx.
+Description: This package serves as a tutorial and collection of demo scripts
+    for Item Factor Analysis.
 LazyData: yes
 LazyDataCompression: bzip2
 License: GPL (>= 3)
 Suggests:
     testthat,
     roxygen2,
+    knitr
+Depends:
     ggplot2,
     reshape2,
-    gridExtra,
-    knitr
-Imports:
-    mvtnorm
-Depends:
-    methods,
-    parallel,
+    rpf (>= 0.39),
+    OpenMx (>= 2.0),
     R (>= 2.14.0)
 VignetteBuilder: knitr
-Collate:
 URL: https://gitorious.org/ifaTools

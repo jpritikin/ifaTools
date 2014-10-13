@@ -9,15 +9,9 @@ if [ ! -e ./util/install ]; then
   exit
 fi
 
-pkg=rpf
-
 CPUS=1
 if [ -f /proc/cpuinfo ]; then
   CPUS=$(grep ^processor /proc/cpuinfo  | wc -l)
 fi
-
-cp src/Makevars.in src/Makevars
-echo >> src/Makevars
-echo "-include autodep" >> src/Makevars
 
 MAKEFLAGS="-j $CPUS" R CMD INSTALL .
