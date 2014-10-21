@@ -125,6 +125,8 @@ shinyUI(navbarPage(
                            choices="No parameter selected"),
                textInput("focusedParameterLabel", label = "Label"),
                actionButton("changeLabelAction", label = "Set Label"),
+               checkboxInput("excludeFocusedItem", label = "Exclude", value = FALSE),
+               textOutput("excludeFocusedItemFeedback"),
                conditionalPanel('input.focusedItemModel == "drm"',
                                 selectInput("focusedParameterPrior", label = "Prior",
                                             "logit normal", "beta"))

@@ -199,9 +199,12 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
                   "colnames(data) <- mxMakeNames(colnames(data), unique=TRUE)")
   }
 
+  loadData <- c(loadData,
+                sapply(rawData$exclude, function(col) paste0("\ndata[['", col, "']] <- NULL")))
+
   data <- rawData$val
   ncols <- ncol(data)
-  dcols <- dataColumnNames(input, rawData)
+  dcols <- includedColumnNames(input, rawData)
   mkSpec <- do.call(paste, c(lapply(dcols, function (col) {
     im <- itemModel[[col]]
     str <- c("  '", col, "'=rpf.", im$model, "(factors=numFactors")
@@ -267,6 +270,16 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
       }, starts, lens - 1L, val, SIMPLIFY=FALSE))
     }
   }
+  
+  ltbl <- table(labels)
+  if (any(ltbl > 1)) {
+    itemInit <- c(itemInit, "hasLabel <- !is.na(imat$labels)")
+  }
+  itemInit <- c(itemInit, sapply(
+    names(ltbl[ltbl > 1]), function(lab) {
+      paste0("imat$values[hasLabel & imat$labels=='", lab, "'] <- 
+    sample(imat$values[hasLabel & imat$labels=='", lab, "'], 1)")
+    }))
   
   itemInit <- paste(itemInit, collapse="\n")
 
@@ -400,7 +413,7 @@ trackRecodeRule <- function(fa1, ix, rc, col) {
 genRecodeOutcomesCode <- function(input, rawData, recodeTable, permuteTable) {
   dat <- rawData$val
   if (is.null(dat)) return(NULL)
-  ch <- dataColumnNames(input, rawData)
+  ch <- includedColumnNames(input, rawData)
   outcomes <- lapply(dat[,ch], function(col) {
     sort(unique(col))
   })
@@ -467,7 +480,8 @@ genRecodeOutcomesCode <- function(input, rawData, recodeTable, permuteTable) {
   fSetNames <- sapply(farg, function(oc) digest(oc, ascii=TRUE))
   fSetTbl <- table(fSetNames)
   if (length(fSetTbl) == 1) {
-    xform <- c(xform, flushFactorTransform(farg[[ix]], "data[names(spec)]"))
+    pick <- names(farg)[1]
+    xform <- c(xform, flushFactorTransform(farg[[pick]], "data[names(spec)]"))
   } else {
     for (fs in names(fSetTbl)) {
       loop <- names(fSetNames[fs == fSetNames])
@@ -528,11 +542,15 @@ dataColumnNames <- function(input, rawData) {
   setdiff(colnames(rawData$val), input$freqColumnName)
 }
 
+includedColumnNames <- function(input, rawData) {
+  setdiff(colnames(rawData$val), c(input$freqColumnName, rawData$exclude))
+}
+
 # -----------------------------------------------------------------------------------------
 shinyServer(function(input, output, session) {
   feedback <- reactiveValues(newOutcomeAction="", resetRecodeAction="",
                              focusedOutcomeMapAction="", codingFile="")
-  rawData <- reactiveValues(val=NULL, name=NULL)
+  rawData <- reactiveValues(val=NULL, name=NULL, exclude=NULL)
   recodeTable <- reactiveValues(val=NULL)
   permuteTable <- reactiveValues(val=NULL)
   itemModel <- reactiveValues()  # colname to list(model, Ta, Tc, startingValues, free, labels, prior)
@@ -648,7 +666,7 @@ shinyServer(function(input, output, session) {
     dat <- rawData$val
     if (is.null(dat)) return(NULL)
     
-    ch <- isolate(dataColumnNames(input, rawData))
+    ch <- dataColumnNames(input, rawData)
     tbl <- sapply(rawData$val[,ch], function(col) c(Outcomes=length(unique(col)),
                                                     Missing=sum(is.na(col))))
     tbl <- t(tbl)
@@ -957,6 +975,7 @@ shinyServer(function(input, output, session) {
     if (fi == allItemsToken) {
       sel <- 'as is'
       choices <- c('as is', 'drm', 'grm', 'nrm')
+      updateCheckboxInput(session, "excludeFocusedItem", value=FALSE)
     } else {
       outcomeMap <- recodeOutcomes(input, rawData, recodeTable)
       outcomes <- length(outcomeMap[[fi]])
@@ -964,6 +983,9 @@ shinyServer(function(input, output, session) {
       if (outcomes == 2) choices <- c('drm', choices)
       if (outcomes > 2) choices <- c(choices, 'nrm')
       sel <- isolate(itemModel[[fi]]$model)
+      excl <- isolate(any(rawData$exclude == fi))
+      updateCheckboxInput(session, "excludeFocusedItem", value=excl)
+      feedback[['excludeFocusedItem']] <- ''
     }
     updateSelectInput(session, "focusedItemModel", choices=choices, selected=sel)
   })
@@ -1073,6 +1095,25 @@ shinyServer(function(input, output, session) {
       maybeUpdateLabel(input, itemModel, im, pname)
     }
   })
+  
+  observe({
+    yes <- input$excludeFocusedItem
+    fi <- isolate(input$focusedItem)
+    if (fi == allItemsToken) {
+      feedback[['excludeFocusedItem']] <- 'You can only exclude 1 item at a time.'
+      return()
+    }
+    
+    oldExclude <- isolate(rawData$exclude)
+    if (yes) {
+      newEx <- union(oldExclude, fi)
+    } else {
+      newEx <- setdiff(oldExclude, fi)
+    }
+    if (length(newEx) != length(oldExclude)) rawData$exclude <- newEx
+  })
+  
+  output$excludeFocusedItemFeedback <- renderText(feedback[['excludeFocusedItem']])
   
   # ------------------------------------------------------------------ Preview & Download
   
