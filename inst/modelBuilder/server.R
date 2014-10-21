@@ -203,7 +203,6 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
                 sapply(rawData$exclude, function(col) paste0("\ndata[['", col, "']] <- NULL")))
 
   data <- rawData$val
-  ncols <- ncol(data)
   dcols <- includedColumnNames(input, rawData)
   mkSpec <- do.call(paste, c(lapply(dcols, function (col) {
     im <- itemModel[[col]]
@@ -290,12 +289,15 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
     paste0("output: html_document"),
     "---\n",
     "```{r}",
-    "library(OpenMx)",
-    "library(rpf)",
+    "suppressPackageStartupMessages(library(OpenMx))",
+    "suppressPackageStartupMessages(library(rpf))",
+    "suppressPackageStartupMessages(library(ifaTools))",
+    "library(xtable)",
+    "options(xtable.type='html')",
     "",
     paste0(loadData, collapse=""),
     "",
-    paste0("if (ncol(data) != ",ncols,") stop('Expecting ",ncols," columns')"),
+    paste0("if (ncol(data) != ",length(dcols),") stop('Expecting ",length(dcols)," columns')"),
     paste0("factors <- ", paste0(deparse(fnames)), collapse=""),
     "numFactors <- length(factors)",
     "spec <- list(",
@@ -332,6 +334,46 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
     "",
     "m1Grp <- as.IFAgroup(m1Fit, minItemsPerScore=1L)",
     "```",
+    "",
+    "A item factor model was fit with `r length(factors)`
+factors (`r factors`), -2LL=`r round(m1Fit$output$fit,1)`.",
+    "The condition number of the information matrix was `r round(m1Fit$output$conditionNumber)`.",
+    "",
+    "```{r,fig.height=2}
+got <- sumScoreEAPTest(m1Grp)
+df <- data.frame(score=as.numeric(names(got$observed)),
+            expected=got$expected, observed=got$observed)
+df <- melt(df, id='score', variable.name='source', value.name='n')
+ggplot(df, aes(x=score, y=n, color=source)) + geom_line()
+```",
+    "",
+    "```{r,results='asis'}
+ct <- ChenThissen1997(m1Grp)
+print(xtable(ct$pval, paste('Log p-value of local dependence between item pairs.')))
+```",
+    "",
+    "```{r,results='asis'}
+sfit <- SitemFit(m1Grp)
+tbl <- t(sapply(sfit, function(r) c(n=r$n, df=r$df, stat=r$statistic, pval=r$pval)))
+print(xtable(tbl, paste0('Sum-score item-wise fit')))
+```",
+    "",
+    "```{r,fig.height=2}
+map1 <- itemResponseMap(m1Grp, factor=1)
+ggplot(map1, aes(x=score, y=item, label=outcome)) +
+  geom_text(size=4, position=position_jitter(h=.25))
+```",
+    "",
+    "```{r,fig.height=3}
+pl <- lapply(names(sfit), function(item) { SitemPlot(sfit, item) })
+for (px in 1:length(pl)) {
+  print(pl[[px]])
+}
+
+basis <- rep(0, length(factors))
+basis[1] <- 1
+plotInformation(m1Grp, width=5, basis=basis)
+```",
     sep="\n")
 }
 
@@ -546,6 +588,14 @@ includedColumnNames <- function(input, rawData) {
   setdiff(colnames(rawData$val), c(input$freqColumnName, rawData$exclude))
 }
 
+setupItemModels <- function(input, rawData, itemModel, numFactors, outcomes) {
+  dcol <- isolate(dataColumnNames(input, rawData))
+  for (col in dcol) {
+    itemModel[[col]] <- mergeDataAndModel(col, length(outcomes[[col]]), numFactors,
+                                          isolate(itemModel[[col]]))
+  }
+}
+
 # -----------------------------------------------------------------------------------------
 shinyServer(function(input, output, session) {
   feedback <- reactiveValues(newOutcomeAction="", resetRecodeAction="",
@@ -569,6 +619,7 @@ shinyServer(function(input, output, session) {
       rawData$loadDemo <- loader
       rawData$stem <- "kct"
       rawData$val <- data
+      rawData$exclude <- c("X1x1x4", "X2x2x3", "X3x1x2x4", "X18x4x1x3x4x2x1x4")
       
       recodeTable$val <- 
         structure(list(type = structure(c(1L, 1L, 1L, 1L), .Label = "outcomeSet", class = "factor"), 
@@ -584,6 +635,14 @@ shinyServer(function(input, output, session) {
       permuteTable$val <- 
         structure(list("9b162432e63482dee83b819368c73fb4" = c(2L, 1L)),
                   .Names = "9b162432e63482dee83b819368c73fb4")
+      
+      isolate({
+        outcomes <- isolate(recodeOutcomes(input, rawData, recodeTable))
+        setupItemModels(input, rawData, itemModel, numFactors, outcomes)
+        for (name in names(outcomes)) {
+          itemModel[[name]]$labels[1] <- 'slope'
+        }
+      })
   })
   
   observe({
@@ -601,6 +660,7 @@ shinyServer(function(input, output, session) {
     rawData$loadDemo <- loader
     rawData$stem <- "science"
     rawData$val <- data
+    rawData$exclude <- 'GOTOMUSEUM'
     
     recodeTable$val <- 
       structure(list(type = structure(1L, .Label = "outcomeSet", class = "factor"), 
@@ -937,10 +997,7 @@ shinyServer(function(input, output, session) {
         updateTextInput(session, name, value=sillyFactorName[fx])
       }
     }
-    for (col in dataColumnNames(input, rawData)) {
-      itemModel[[col]] <- mergeDataAndModel(col, length(outcomes[[col]]), numFactors,
-                                            isolate(itemModel[[col]]))
-    }
+    setupItemModels(input, rawData, itemModel, numFactors, outcomes)
   })
   
   output$itemModelAssignment <- renderTable({
