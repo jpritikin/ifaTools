@@ -29,6 +29,7 @@ shinyUI(navbarPage(
         tags$hr(),
         helpText("Load example data"),
         actionButton("exampleDataKCT", label = "KCT"),
+        actionButton("exampleDataLSAT6", label = "LSAT6"),
         actionButton("exampleDataScience", label = "Science")
       ),
       mainPanel(
@@ -39,12 +40,18 @@ shinyUI(navbarPage(
                              tags$p("Number of rows:"),
                              verbatimTextOutput("numberOfDataRows"),
                              hr(),
-                             tableOutput('dataContents')),
+                             tableOutput('dataContents'),
+                             helpText("Only the first 6 rows are shown to give",
+                                      "you an idea of whether the data loaded",
+                                      "correctly.")),
                     tabPanel("Item summary",
                              selectInput("freqColumnName", label = "Row frequency column:",
                                          choices="No data loaded"),
                              hr(),
-                             tableOutput('dataSummary')))
+                             tableOutput('dataSummary'),
+                             helpText("The number of outcomes listed here",
+                                      "are derived solely from the data and",
+                                      "are not affected by subsequent recoding.")))
       )
     )
   ),
@@ -153,26 +160,25 @@ shinyUI(navbarPage(
                         tableOutput('itemPriorTable'))
                ))
            )),
-  tabPanel("Preview",
-           actionButton("debugScriptAction", label = "Refresh!"),
-           verbatimTextOutput("debugScriptOutput")),
-  tabPanel("Download", sidebarLayout(
+  tabPanel("Script", sidebarLayout(
     sidebarPanel(
       checkboxInput("showFitProgress", label = "Show model fitting progress", value = TRUE),
       checkboxInput("fitReferenceModels", label = "Fit reference models (for more fit statistics)",
                     value = FALSE),
       selectInput("infoMethod", "Information matrix method:", 
-                  choices = c("Oakes (1999)", "Meat", "Agile SEM", "*none*")),
-      downloadButton('downloadScript', 'Download')
-    ),
-    mainPanel(
+                  choices = c("Oakes", "Meat", "Agile SEM", "*none*")),
+      actionButton("debugScriptAction", label = "Refresh!"),
+      tags$hr(),
+      downloadButton('downloadScript', 'Download'),
       withTags(ol(
         li('Download your analysis script.'),
         li('Open it in RStudio.'),
         li('Update the pathname to your data (if necessary).'),
         li('Click the Knit/HTML button at the top of your document.')
-      )),
-      withTags(p(br(),br(),br(),br(),br(),br(),br(),br(),br()))
+      ))
+    ),
+    mainPanel(
+      verbatimTextOutput("debugScriptOutput")
     )
   ))
 

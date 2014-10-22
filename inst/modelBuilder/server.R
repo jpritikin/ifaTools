@@ -3,8 +3,9 @@ library(OpenMx)
 library(rpf)
 library(digest)
 
-# mention citation
 # drm == dichotomous help TODO
+# do something for minItemsPerScore
+# allow factors=0 for experimenting with the independence model
 
 #options(shiny.trace=TRUE)
 #options(shiny.reactlog=TRUE)
@@ -198,10 +199,15 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
     loadData <- c(loadData, ",stringsAsFactors=FALSE,check.names=FALSE)\n",
                   "colnames(data) <- mxMakeNames(colnames(data), unique=TRUE)")
   }
+  if (input$freqColumnName != '') {
+    fc <- input$freqColumnName
+    loadData <- c(loadData, paste0("\ndata[['", fc, "']] <- as.numeric(data[['", fc, "']])"))
+  }
 
   loadData <- c(loadData,
                 sapply(rawData$exclude, function(col) paste0("\ndata[['", col, "']] <- NULL")))
 
+  # rle encode spec creation TODO
   data <- rawData$val
   dcols <- includedColumnNames(input, rawData)
   mkSpec <- do.call(paste, c(lapply(dcols, function (col) {
@@ -281,6 +287,20 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
     }))
   
   itemInit <- paste(itemInit, collapse="\n")
+  
+  numExtraCol <- 0
+  freqExpectationArgs <- ''
+  freqDataArgs <- ''
+  if (input$freqColumnName != '') {
+    freqExpectationArgs <- paste0(", weightColumn='", input$freqColumnName,"'")
+    freqDataArgs <- paste0(", numObs=sum(data[['", input$freqColumnName,"']]), sort=FALSE")
+    numExtraCol <- 1
+  }
+  
+  getRefModels <- ""
+  if (input$fitReferenceModels) {
+    getRefModels <- ", refModels=mxRefModels(m1Fit, run = TRUE)"
+  }
 
   paste(
     "---",
@@ -297,7 +317,8 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
     "",
     paste0(loadData, collapse=""),
     "",
-    paste0("if (ncol(data) != ",length(dcols),") stop('Expecting ",length(dcols)," columns')"),
+    paste0("if (ncol(data) != ",length(dcols)+numExtraCol,
+           ") stop('Expecting ",length(dcols)+numExtraCol," columns')"),
     paste0("factors <- ", paste0(deparse(fnames)), collapse=""),
     "numFactors <- length(factors)",
     "spec <- list(",
@@ -313,14 +334,14 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
     "",
     "#set.seed(1)   # uncomment to get the same starting values every time",
     "startingValues <- mxSimplify2Array(lapply(spec, rpf.rparam))",
-    "rownames(startingValues) <- paste('p', 1:nrow(startingValues))",
+    "rownames(startingValues) <- paste0('p', 1:nrow(startingValues))",
     "rownames(startingValues)[1:numFactors] <- factors",
     "",
     "imat <- mxMatrix(name='item', values=startingValues, free=!is.na(startingValues))",
     itemInit,
     paste0("m1 <- mxModel(model='",rawData$stem,"', imat,
-           mxData(observed=data, type='raw'),
-           mxExpectationBA81(ItemSpec=spec),
+           mxData(observed=data, type='raw'", freqDataArgs, "),
+           mxExpectationBA81(ItemSpec=spec", freqExpectationArgs, "),
            mxFitFunctionML())"),
     "",
     paste0("computePlan <- mxComputeSequence(list(mxComputeEM('expectation', 'scores',
@@ -374,6 +395,14 @@ basis <- rep(0, length(factors))
 basis[1] <- 1
 plotInformation(m1Grp, width=5, basis=basis)
 ```",
+    "",
+    paste0("```{r}
+summary(m1Fit", getRefModels, ")
+```"),
+    "",
+    "```{r,results='asis'}
+citation('OpenMx')
+```",
     sep="\n")
 }
 
@@ -417,6 +446,9 @@ flushFactorTransform <- function(fa1, col) {
   }
   if (length(fa1$exclude)) {
     args <- c(args, ", exclude=", paste(deparse(fa1$exclude), collapse=""))
+  }
+  if (any(duplicated(fa1$labels))) {
+    args <- c(args, ", collapse=TRUE")
   }
   args <- c(args, ")")
   do.call(paste0, args)
@@ -596,6 +628,14 @@ setupItemModels <- function(input, rawData, itemModel, numFactors, outcomes) {
   }
 }
 
+setupFreqColumnName <- function(session, rawData, freqCol) {
+  dcols <- isolate(colnames(rawData$val))
+  if (!missing(freqCol) && is.na(match(freqCol, dcols))) browser()
+  if (missing(freqCol)) freqCol <- "-"
+  updateSelectInput(session, "freqColumnName", selected=freqCol,
+                    choices=c("-", dcols))
+}
+
 # -----------------------------------------------------------------------------------------
 shinyServer(function(input, output, session) {
   feedback <- reactiveValues(newOutcomeAction="", resetRecodeAction="",
@@ -643,6 +683,34 @@ shinyServer(function(input, output, session) {
           itemModel[[name]]$labels[1] <- 'slope'
         }
       })
+      setupFreqColumnName(session, rawData)
+  })
+  
+  observe({
+    if (input$exampleDataLSAT6 == 0) return()
+    
+    loader <- parse(text=c(
+      'utils::data("LSAT6", package="rpf")',
+      'data <- LSAT6'
+    ))
+    eval(loader)
+    
+    rawData$loadDemo <- loader
+    rawData$stem <- "LSAT6"
+    rawData$val <- data
+
+    recodeTable$val <- 
+      structure(list(type = structure(c(1L, 1L), .Label = "outcomeSet", class = "factor"), 
+                     name = structure(c(1L, 1L), .Label = "Item_1", class = "factor"), 
+                     nameHash = structure(1:2, .Label = c("b66901a10dfd2349673b611ab231b535", "b867678184d2befa2e1b57c4529dbdc3"), class = "factor"),
+                     action = structure(c(1L,  1L), .Label = "recode", class = "factor"),
+                     from = structure(1:2, .Label = c("0", "1"), class = "factor"),
+                     to = structure(1:2, .Label = c("incorrect", "correct"), class = "factor")),
+                .Names = c("type", "name", "nameHash", "action", "from", "to"), row.names = 1:2, class = "data.frame")
+    permuteTable$val <- 
+      structure(list("9b162432e63482dee83b819368c73fb4" = c(2L, 1L)), .Names = "9b162432e63482dee83b819368c73fb4")
+    
+    setupFreqColumnName(session, rawData, "Freq")
   })
   
   observe({
@@ -672,6 +740,8 @@ shinyServer(function(input, output, session) {
     permuteTable$val <- 
       structure(list("37cba13974a597e56737c53035b1a6f0" = c(1L, 3L, 2L)),
                 .Names = "37cba13974a597e56737c53035b1a6f0")
+    
+    setupFreqColumnName(session, rawData)
   })
   
   observe({
@@ -701,13 +771,13 @@ shinyServer(function(input, output, session) {
     rawData$name <- inFile$name
     rawData$stem <- sub('\\..{3}$', '', inFile$name, perl=TRUE)
     rawData$val <- dat
+    
+    setupFreqColumnName(session, rawData)
   })
   
   output$dataContents <- renderTable({
     dat <- rawData$val
     #    updateTabsetPanel(session, "dataPreviewTabset", "front")  dunno why doesn't work TODO
-    updateSelectInput(session, "freqColumnName", selected="-",
-                      choices=c("-", colnames(dat)))
     head(dat)
   })
   
@@ -1176,7 +1246,12 @@ shinyServer(function(input, output, session) {
   
   output$debugScriptOutput <- renderText({
     input$debugScriptAction
-    isolate(toScript(input, rawData, recodeTable, permuteTable, itemModel))
+    validate(need(nrow(rawData$val), "No data is loaded"))
+    str <- try(isolate(toScript(input, rawData, recodeTable, permuteTable, itemModel)), silent=TRUE)
+    validate(need(!inherits(str, "try-error"),
+                  paste("An error occurred. Please report this to the development team.",
+                        str, sep="\n")))
+    str
   })
   
   output$downloadScript <- downloadHandler(
