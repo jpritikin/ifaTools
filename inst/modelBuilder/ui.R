@@ -19,7 +19,8 @@ shinyUI(navbarPage(
         radioButtons('dataSep', 'Separator',
                      c(Comma=',',
                        Semicolon=';',
-                       Tab='\t'),
+                       Tab='\t',
+                       Whitespace=' '),
                      ','),
         radioButtons('dataQuote', 'Quote',
                      c(None='',
@@ -132,17 +133,19 @@ shinyUI(navbarPage(
                            choices="No parameter selected"),
                textInput("focusedParameterLabel", label = "Label"),
                actionButton("changeLabelAction", label = "Set Label"),
+               sliderInput("focusedParameterPrior", label = "Prior mode",
+                           min=2, max=25, value=3),
+               actionButton("focusedParameterPriorSetAction", label = "Set"),
+               actionButton("focusedParameterPriorClearAction", label = "Clear"),
+               textOutput("focusedParameterPriorFeedback"),
+               tags$hr(),
                checkboxInput("excludeFocusedItem", label = "Exclude", value = FALSE),
-               textOutput("excludeFocusedItemFeedback"),
-               conditionalPanel('input.focusedItemModel == "drm"',
-                                selectInput("focusedParameterPrior", label = "Prior",
-                                            "logit normal", "beta"))
+               textOutput("excludeFocusedItemFeedback")
              ),
              mainPanel(tabsetPanel(
                tabPanel("Factors",
-                        # TODO change back to sliderInput
                         sliderInput("numFactors", "Number of factors:",
-                                    min=1, max=5, value=1),
+                                    min=0, max=5, value=1),
                         textInput("nameOfFactor1", "Factor 1"),
                         textInput("nameOfFactor2", "Factor 2"),
                         textInput("nameOfFactor3", "Factor 3"),
@@ -156,12 +159,14 @@ shinyUI(navbarPage(
                         tableOutput('itemFreeTable'),
                         helpText("Labels"),
                         tableOutput('itemLabelTable'),
-                        helpText("Bayesian prior"),
+                        helpText("Bayesian prior mode"),
                         tableOutput('itemPriorTable'))
                ))
            )),
   tabPanel("Script", sidebarLayout(
     sidebarPanel(
+      selectInput("boundPriorForm", "Functional form for dichotomous bound prior density",
+                  c("Logit-normal", "Beta")),
       checkboxInput("showFitProgress", label = "Show model fitting progress", value = TRUE),
       checkboxInput("fitReferenceModels", label = "Fit reference models (for more fit statistics)",
                     value = FALSE),

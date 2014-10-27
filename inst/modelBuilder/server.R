@@ -5,7 +5,6 @@ library(digest)
 
 # drm == dichotomous help TODO
 # do something for minItemsPerScore
-# allow factors=0 for experimenting with the independence model
 
 #options(shiny.trace=TRUE)
 #options(shiny.reactlog=TRUE)
@@ -38,7 +37,7 @@ mergeDataAndModel <- function(col, outcomes, factors, item) {
     spec <- rpf.grm(outcomes, factors = factors)
     np <- rpf.numParam(spec)
     return(list(name=col, model='grm', outcomes=outcomes, factors=factors,
-                starting=rpf.rparam(spec), labels=rep(NA, np), free=rep(TRUE, np), prior=rep(NA, np)))
+                starting=rpf.rparam(spec), labels=rep(NA, np), free=rep(TRUE, np)))
   }
   if (item$model == 'nrm') {
     if (is.null(item$Ta)) item$Ta <- "trend"
@@ -61,11 +60,9 @@ mergeDataAndModel <- function(col, outcomes, factors, item) {
     item$starting <- newSV
     item$free <- rep(TRUE, np)
     item$labels <- rep(NA, np)
-    item$prior <- rep(NA, np)
     item$starting[newInd] <- oldItem$starting[preserveMap]
     item$free[newInd] <- oldItem$free[preserveMap]
     item$labels[newInd] <- oldItem$labels[preserveMap]
-    item$prior[newInd] <- oldItem$prior[preserveMap]
   }
   item
 }
@@ -84,6 +81,7 @@ changeItemModel <- function(itemModel, input, outcomes, fi, newModel) {
 
 getFactorNames <- function(input) {
   numFactors <- isolate(input$numFactors)
+  if (numFactors == 0) return(c())
   sapply(1:numFactors, function (x) input[[ paste0("nameOfFactor", x) ]])
 }
 
@@ -103,13 +101,15 @@ buildParameterTable <- function(input, rawData, itemModel, attr) {
   names(massign) <- dcols
   tbl <- mxSimplify2Array(massign)
   fnames <- getFactorNames(input)
-  rownames(tbl)[1:length(fnames)] <- fnames
+  if (length(fnames)) {
+    rownames(tbl)[1:length(fnames)] <- fnames
+  }
   tbl
 }
 
-getFocusedItem <- function(input, itemModel) {
+getFocusedItem <- function(input, rawData, itemModel) {
   fi <- input$focusedItem
-  inames <- names(itemModel)
+  inames <- dataColumnNames(input, rawData)
   if (length(inames) == 0) return()
   
   if (fi == allItemsToken) {
@@ -123,7 +123,9 @@ getFocusedItem <- function(input, itemModel) {
 getFocusedParameterNames <- function(input, im) {
   pname <- names(im$starting)
   fnames <- getFactorNames(input)
-  pname[1:length(fnames)] <- fnames
+  if (length(fnames)) {
+    pname[1:length(fnames)] <- fnames
+  }
   pname
 }
 
@@ -167,7 +169,8 @@ maybeUpdateFree <- function(input, itemModel, im, pname) {
 }
 
 maybeUpdateLabel <- function(input, itemModel, im, pname) {
-  newLabel <- mxMakeNames(isolate(input$focusedParameterLabel))
+  proposal <- isolate(input$focusedParameterLabel)
+  newLabel <- ifelse(nchar(proposal), mxMakeNames(proposal), proposal)
   fx <- match(pname, names(im$starting))
   if (is.na(fx)) return()
   sel <- im$labels[fx]
@@ -182,7 +185,7 @@ maybeUpdateLabel <- function(input, itemModel, im, pname) {
   itemModel[[ im$name ]] <- im
 }
 
-toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
+toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayesianPrior) {
   if (is.null(rawData$name)) {
     loadData <- paste(c("# load some demonstration data",
                         as.character(rawData$loadDemo)), collapse="\n")
@@ -199,20 +202,21 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
     loadData <- c(loadData, ",stringsAsFactors=FALSE,check.names=FALSE)\n",
                   "colnames(data) <- mxMakeNames(colnames(data), unique=TRUE)")
   }
-  if (input$freqColumnName != '') {
+  if (input$freqColumnName != '-') {
     fc <- input$freqColumnName
     loadData <- c(loadData, paste0("\ndata[['", fc, "']] <- as.numeric(data[['", fc, "']])"))
   }
-
+  
   loadData <- c(loadData,
-                sapply(rawData$exclude, function(col) paste0("\ndata[['", col, "']] <- NULL")))
-
-  # rle encode spec creation TODO
+                sapply(rawData$exclude, function(col) paste0("\ndata[['", col, "']] <- NULL  # excluded")))
+  
   data <- rawData$val
   dcols <- includedColumnNames(input, rawData)
-  mkSpec <- do.call(paste, c(lapply(dcols, function (col) {
+  mkSpec <- list("spec <- list()")
+
+  mker <- sapply(dcols, function(col) {
     im <- itemModel[[col]]
-    str <- c("  '", col, "'=rpf.", im$model, "(factors=numFactors")
+    str <- c("rpf.", im$model, "(factors=numFactors")
     if (im$model != "drm") {
       str <- c(str, ",outcomes=", im$outcomes)
     }
@@ -220,7 +224,23 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
       str <- c(str, ",T.a='", im$Ta, "', T.c='", im$Tc, "'")
     }
     paste0(c(str, ")"), collapse="")
-  }), sep=",\n"))
+  })
+
+  code <- rle(mker)
+  val <- code$values
+  starts <- cumsum(c(1, code$lengths))[c(rep(TRUE,length(val)),FALSE)]
+  lens <- code$lengths
+  if (length(starts) == 1) {
+    mkSpec <- c(mkSpec, paste0("spec[1:", length(mker),"] <- ",mker[1]))
+  } else {
+    mkSpec <- c(mkSpec, mapply(function(start, len, v1) {
+      paste0("spec[",start,":",(start+len),"] <- ",v1)
+    }, starts, lens - 1L, val, SIMPLIFY=FALSE))
+  }
+  
+  mkSpec <- c(mkSpec,
+              paste0("names(spec) <- ", paste(deparse(dcols), collapse="\n  ")))
+  mkSpec <- paste(mkSpec, collapse="\n")
   
   fnames <- getFactorNames(input)
   
@@ -229,9 +249,11 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
   free[is.na(free)] <- TRUE  # can ignore these
   labels <- mxSimplify2Array(lapply(dcols, function(col) { itemModel[[col]]$labels }))
   labels[!free] <- NA
-
+  
   rnames <- paste0('p', 1:nrow(starting))
-  rnames[1:length(fnames)] <- fnames
+  if (length(fnames)) {
+    rnames[1:length(fnames)] <- fnames
+  }
   
   itemInit <- list()
   for (rx in 1:nrow(free)) {
@@ -258,7 +280,7 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
       paste0("imat$values[",rname,",",start,":",(start+len),"] <- ", srow[start])
     }, cumsum(c(1, code$lengths))[c(mask,FALSE)], code$lengths[mask] - 1L, SIMPLIFY=FALSE))
   }
-
+  
   for (rx in 1:nrow(free)) {
     rname <- paste0("'", rnames[rx], "'")
     code <- rle(labels[rx,])
@@ -288,10 +310,97 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
   
   itemInit <- paste(itemInit, collapse="\n")
   
+  topModel <- "itemModel"
+  fitIFAgroup <- "m1Fit"
+
+  ul <- unique(labels)
+  ul <- ul[!is.na(ul)]
+  bpList <- match(ul, names(bayesianPrior$map))
+  bpList <- sort(bpList[!is.na(bpList)])
+  priorInit <- c()
+  if (length(bpList)) {
+    topModel <- "container"
+    fitIFAgroup <- "m1Fit$itemModel"
+    bmode <- bayesianPrior$map[bpList]
+    bmodeNames <- names(bmode)
+    names(bmode) <- NULL
+    priorInit <- c(priorInit,
+                   "",
+                   paste0("priorLabels <- ", paste0(deparse(bmodeNames), collapse="")),
+                   paste0("priorParam <- mxMatrix(name='priorParam', nrow=1, ncol=length(priorLabels),
+               free=TRUE, labels=priorLabels)"),
+                   "priorParam$values <- imat$values[ match(priorParam$labels, imat$labels) ]",
+                   "priorMode <- c(priorParam$values)")
+    code <- rle(as.character(bmode))
+    val <- code$values
+    starts <- cumsum(c(1, code$lengths))[c(rep(TRUE, length(val)),FALSE)]
+    lens <- code$lengths
+    if (length(starts) == 1) {
+      priorInit <- c(priorInit, paste0("priorMode[1:",length(bmode),"] <- ",bmode[1]))
+    } else {
+      priorInit <- c(priorInit, mapply(function(start, len, v1) {
+        paste0("priorMode[",start,":",(start+len),"] <- ",v1)
+      }, starts, lens - 1L, val, SIMPLIFY=FALSE))
+    }
+    priorInit <- c(priorInit, "")
+    
+    if (input$boundPriorForm == "Beta") {
+      priorInit <- c(priorInit,
+                     "calcBetaParam <- function(mode, strength) {
+  a <- plogis(mode) * strength
+  b <- strength - a
+  c(a=a, b=b, c=log(beta(a+1,b+1)))
+}",
+                     "betaParam <- sapply(priorMode, calcBetaParam, strength=5)",
+                     "betaA <- mxMatrix(name='betaA', values=betaParam['a',,drop=FALSE])",
+                     "betaB <- mxMatrix(name='betaB', values=betaParam['b',,drop=FALSE])",
+                     "betaC <- mxMatrix(name='betaC', values=betaParam['c',,drop=FALSE])",
+                     "betaFit <- mxAlgebra(2 * sum((betaA + betaB)*log(exp(priorParam)+1) -
+   betaA * priorParam + betaC), name='betaFit')",
+                     "betaGrad <- mxAlgebra(2*(betaB-(betaA+betaB)/(exp(priorParam) + 1)),
+   name='betaGrad', dimnames=list(c(),priorParam$labels))",
+                     "betaHess <- mxAlgebra(vec2diag(2*(exp(priorParam)*(betaA+betaB) / (exp(priorParam) + 1)^2)),
+                                           name='betaHess',
+                                           dimnames=list(priorParam$labels, priorParam$labels))",
+                     "\n# Create a model that will evaluate to the log likelihood of the beta prior
+# and provide suitable derivatives for the optimizer.
+betaModel <- mxModel(model='betaModel', priorParam, betaA, betaB, betaC,
+    betaFit, betaGrad, betaHess,
+    mxFitFunctionAlgebra('betaFit', gradient='betaGrad', hessian='betaHess'))",
+                     "\ncontainer <- mxModel(model='container', itemModel, betaModel,
+  mxFitFunctionMultigroup(groups=c('itemModel.fitfunction', 'betaModel.fitfunction')))")
+    } else if (input$boundPriorForm == "Logit-normal") {
+      priorInit <- c(priorInit,
+                     "gaussM <- mxMatrix(name='gaussM', nrow=1, ncol=length(priorMode), values=priorMode)",
+                     "gaussSD <- mxMatrix(name='gaussSD', nrow=1, ncol=length(priorMode), values=.5)",
+                     "gaussFit <- mxAlgebra(sum(log(2*pi) + 2*log(gaussSD) +
+    (priorParam-gaussM)^2/gaussSD^2), name='gaussFit')",
+                     "gaussGrad <- mxAlgebra(2*(priorParam - gaussM)/gaussSD^2, name='gaussGrad',
+    dimnames=list(c(),priorParam$labels))",
+                     "gaussHess <- mxAlgebra(vec2diag(2/gaussSD^2), name='gaussHess',
+    dimnames=list(priorParam$labels, priorParam$labels))",
+                     "\n# Create a model that will evaluate to the log likelihood of the Gaussian prior
+# and provide suitable derivatives for the optimizer.
+gaussModel <- mxModel(model='gaussModel', priorParam, gaussM, gaussSD,
+    gaussFit, gaussGrad, gaussHess,
+    mxFitFunctionAlgebra('gaussFit', gradient='gaussGrad', hessian='gaussHess'))",
+                     "\ncontainer <- mxModel(model='container', itemModel, gaussModel,
+  mxFitFunctionMultigroup(groups=c('itemModel.fitfunction', 'gaussModel.fitfunction')))")
+    } else { browser() }
+  }
+  if (length(priorInit)) {
+    priorInit <- paste(priorInit, collapse="\n")
+  }
+  
+  writeFactorNames <- ''
+  if (length(fnames)) {
+    writeFactorNames <- "rownames(startingValues)[1:numFactors] <- factors"
+  }
+  
   numExtraCol <- 0
   freqExpectationArgs <- ''
   freqDataArgs <- ''
-  if (input$freqColumnName != '') {
+  if (input$freqColumnName != '-') {
     freqExpectationArgs <- paste0(", weightColumn='", input$freqColumnName,"'")
     freqDataArgs <- paste0(", numObs=sum(data[['", input$freqColumnName,"']]), sort=FALSE")
     numExtraCol <- 1
@@ -301,7 +410,35 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
   if (input$fitReferenceModels) {
     getRefModels <- ", refModels=mxRefModels(m1Fit, run = TRUE)"
   }
-
+  
+  emArgs <- paste0("'itemModel.expectation', 'scores',
+  mxComputeNewtonRaphson(), verbose=", ifelse(input$showFitProgress, "2L", "0L"))
+  
+  if (input$infoMethod == "*none*") {
+    computePlan <- paste0("computePlan <- mxComputeEM(", emArgs, ")")
+  } else if (input$infoMethod == "Meat") {
+    computePlan <- paste0("emStep <- mxComputeEM(", emArgs,")\n",
+                          "computePlan <- mxComputeSequence(list(emStep,
+         mxComputeOnce('fitfunction', 'information', 'meat'),
+         mxComputeHessianQuality(),
+         mxComputeStandardError()))")
+  } else if (input$infoMethod == "Oakes") {
+    emArgs <- paste0(emArgs, ",\n  information='oakes1999', infoArgs=list(fitfunction='fitfunction')")
+    computePlan <- paste0("emStep <- mxComputeEM(", emArgs,")\n",
+                          "computePlan <- mxComputeSequence(list(emStep,
+         mxComputeHessianQuality(),
+         mxComputeStandardError()))")
+  } else if (input$infoMethod == "Agile SEM") {
+    emArgs <- paste0(emArgs, ",\n  information='mr1991',
+                     infoArgs=list(fitfunction='fitfunction', semMethod='agile')")
+    computePlan <- paste0("emStep <- mxComputeEM(", emArgs,")\n",
+                          "computePlan <- mxComputeSequence(list(emStep,
+         mxComputeHessianQuality(),
+         mxComputeStandardError()))")
+  } else {
+    browser()
+  }
+  
   paste(
     "---",
     paste0('title: "',rawData$stem, '"'),
@@ -309,6 +446,7 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
     paste0("output: html_document"),
     "---\n",
     "```{r}",
+    "options(width=120)",
     "suppressPackageStartupMessages(library(OpenMx))",
     "suppressPackageStartupMessages(library(rpf))",
     "suppressPackageStartupMessages(library(ifaTools))",
@@ -321,9 +459,7 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
            ") stop('Expecting ",length(dcols)+numExtraCol," columns')"),
     paste0("factors <- ", paste0(deparse(fnames)), collapse=""),
     "numFactors <- length(factors)",
-    "spec <- list(",
     mkSpec,
-    ")",
     "",
     "missingColumns <- which(is.na(match(names(spec), colnames(data))))",
     "if (length(missingColumns)) {",
@@ -335,25 +471,21 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel) {
     "#set.seed(1)   # uncomment to get the same starting values every time",
     "startingValues <- mxSimplify2Array(lapply(spec, rpf.rparam))",
     "rownames(startingValues) <- paste0('p', 1:nrow(startingValues))",
-    "rownames(startingValues)[1:numFactors] <- factors",
+    writeFactorNames,
     "",
     "imat <- mxMatrix(name='item', values=startingValues, free=!is.na(startingValues))",
     itemInit,
-    paste0("m1 <- mxModel(model='",rawData$stem,"', imat,
+    paste0("itemModel <- mxModel(model='itemModel', imat,
            mxData(observed=data, type='raw'", freqDataArgs, "),
            mxExpectationBA81(ItemSpec=spec", freqExpectationArgs, "),
            mxFitFunctionML())"),
+    priorInit,
     "",
-    paste0("computePlan <- mxComputeSequence(list(mxComputeEM('expectation', 'scores',
-                                           mxComputeNewtonRaphson(), verbose=",
-           ifelse(input$showFitProgress, "2L", "0L"), "),
-                               mxComputeOnce('fitfunction', 'information', 'meat'),
-                               mxComputeHessianQuality(),
-                               mxComputeStandardError()))"),
+    computePlan,
     "",
-    "m1Fit <- mxRun(mxModel(m1, computePlan))",
+    paste0("m1Fit <- mxRun(mxModel(", topModel, ", computePlan))"),
     "",
-    "m1Grp <- as.IFAgroup(m1Fit, minItemsPerScore=1L)",
+    paste0("m1Grp <- as.IFAgroup(", fitIFAgroup ,", minItemsPerScore=1L)"),
     "```",
     "",
     "A item factor model was fit with `r length(factors)`
@@ -620,7 +752,8 @@ includedColumnNames <- function(input, rawData) {
   setdiff(colnames(rawData$val), c(input$freqColumnName, rawData$exclude))
 }
 
-setupItemModels <- function(input, rawData, itemModel, numFactors, outcomes) {
+setupItemModels <- function(input, rawData, itemModel, outcomes) {
+  numFactors <- isolate(input$numFactors)
   dcol <- isolate(dataColumnNames(input, rawData))
   for (col in dcol) {
     itemModel[[col]] <- mergeDataAndModel(col, length(outcomes[[col]]), numFactors,
@@ -636,14 +769,49 @@ setupFreqColumnName <- function(session, rawData, freqCol) {
                     choices=c("-", dcols))
 }
 
+updatePriorMode <- function(input, bayesianPrior, itemModel, im, pname, set) {
+  fx <- match(pname, names(im$starting))
+  if (is.na(fx)) return()
+  oldLabel <- im$labels[fx]
+  map <- isolate(bayesianPrior$map)
+  
+  if (set) {
+    if (!(im$model == 'drm' && (pname == 'g' || pname == 'u')))
+      return("Can only set prior on dichotomous (drm) bound parameters.")
+    prior <- isolate(input$focusedParameterPrior)
+    if (is.na(oldLabel)) {
+      oldLabel <- paste0(im$name,"_",pname)
+      im$labels[fx] <- oldLabel
+      itemModel[[im$name]] <- im
+    }
+    if (pname == 'g') {
+      mode <- paste0("logit(1/",prior,")")
+    } else if (pname == 'u') {
+      mode <- paste0("logit(",(as.integer(prior)-1),"/",prior,")")
+    }
+    if (verbose) cat("set bayesian prior", im$name, pname, "to", mode,"using label", oldLabel, fill=TRUE)
+    map[[oldLabel]] <- mode
+    bayesianPrior$map <- map
+  } else {
+    if (!is.na(oldLabel) && !is.null(map[[oldLabel]])) {
+      if (verbose) cat("clear bayesian prior", im$name, pname, "on label", oldLabel, fill=TRUE)
+      map[[oldLabel]] <- NULL
+      bayesianPrior$map <- map
+    }
+  }
+  return('')
+}
+
 # -----------------------------------------------------------------------------------------
 shinyServer(function(input, output, session) {
   feedback <- reactiveValues(newOutcomeAction="", resetRecodeAction="",
-                             focusedOutcomeMapAction="", codingFile="")
+                             focusedOutcomeMapAction="", codingFile="",
+                             focusedParameterPrior="")
   rawData <- reactiveValues(val=NULL, name=NULL, exclude=NULL)
   recodeTable <- reactiveValues(val=NULL)
   permuteTable <- reactiveValues(val=NULL)
-  itemModel <- reactiveValues()  # colname to list(model, Ta, Tc, startingValues, free, labels, prior)
+  itemModel <- reactiveValues()  # colname to list(model, Ta, Tc, startingValues, free, labels)
+  bayesianPrior <- reactiveValues(map=list())  # label -> value map
 
   observe({
       if (input$exampleDataKCT == 0) return()
@@ -678,7 +846,7 @@ shinyServer(function(input, output, session) {
       
       isolate({
         outcomes <- isolate(recodeOutcomes(input, rawData, recodeTable))
-        setupItemModels(input, rawData, itemModel, numFactors, outcomes)
+        setupItemModels(input, rawData, itemModel, outcomes)
         for (name in names(outcomes)) {
           itemModel[[name]]$labels[1] <- 'slope'
         }
@@ -899,7 +1067,6 @@ shinyServer(function(input, output, session) {
   })
   
   observe({
-    # switch to slider? TODO
     if (is.null(recodeTable$val) || nrow(recodeTable$val) == 0) {
       updateNumericInput(session, "focusedRecodeRule", min=1, max=1)
     } else {
@@ -1060,14 +1227,14 @@ shinyServer(function(input, output, session) {
     if (is.null(outcomes)) return()
     
     numFactors <- input$numFactors
-    for (fx in 1:numFactors) {
+    if (numFactors) for (fx in 1:numFactors) {
       name <- paste0("nameOfFactor", fx)
       fn <- isolate(input[[name]])
       if (is.null(fn) || fn == "") {
         updateTextInput(session, name, value=sillyFactorName[fx])
       }
     }
-    setupItemModels(input, rawData, itemModel, numFactors, outcomes)
+    setupItemModels(input, rawData, itemModel, outcomes)
   })
   
   output$itemModelAssignment <- renderTable({
@@ -1076,7 +1243,9 @@ shinyServer(function(input, output, session) {
     outcomes <- recodeOutcomes(input, rawData, recodeTable)
     massign <- mapply(function (col, cname) {
       im <- itemModel[[cname]]
-      c(Outcomes=length(col), Model=im$model, T.a=im$Ta, T.c=im$Tc)
+      c(Outcomes=length(col),
+        Model=im$model, T.a=im$Ta, T.c=im$Tc,
+        Excluded=cname %in% rawData$exclude)
     }, outcomes, names(outcomes), SIMPLIFY=FALSE)
     t(mxSimplify2Array(massign))
   })
@@ -1134,11 +1303,23 @@ shinyServer(function(input, output, session) {
   
   output$itemPriorTable <- renderTable({
     if (length(names(itemModel)) == 0) return(NULL)
-    buildParameterTable(input, rawData, itemModel, "prior")
+    tbl <- buildParameterTable(input, rawData, itemModel, "labels")
+    map <- bayesianPrior$map
+    mapped <- match(tbl[,], names(map))
+    mapped[!is.na(mapped)] <- unlist(map[ mapped[!is.na(mapped)] ])
+    tbl[,] <- mapped
+    for (rx in rownames(tbl)) {
+      if (rx == 'g' || rx == 'u') {
+        # OK
+      } else {
+        tbl[rx,] <- sapply(tbl[rx,], function(pr)  ifelse(is.na(pr), NA, "??"))
+      }
+    }
+    tbl
   })
   
   observe({
-    im <- getFocusedItem(input, itemModel)
+    im <- getFocusedItem(input, rawData, itemModel)
     if (is.null(im)) return()
     pname <- getFocusedParameterNames(input, im)
     prevSelect <- match(isolate(input$focusedItemParameter), pname)
@@ -1148,7 +1329,7 @@ shinyServer(function(input, output, session) {
   })
   
   observe({
-    im <- getFocusedItem(input, itemModel)
+    im <- getFocusedItem(input, rawData, itemModel)
     if (is.null(im)) return()
     fx <- match(input$focusedItemParameter,
                 isolate(getFocusedParameterNames(input, im)))
@@ -1181,7 +1362,7 @@ shinyServer(function(input, output, session) {
   observe({
     if (input$focusedParameterFree == "as is") return()
     
-    im <- getFocusedItem(input, itemModel)
+    im <- getFocusedItem(input, rawData, itemModel)
     if (is.null(im)) return()
     origFx <- isolate(match(input$focusedItemParameter,
                             getFocusedParameterNames(input, im)))
@@ -1193,7 +1374,7 @@ shinyServer(function(input, output, session) {
     if (allFocused) {
       dcols <- isolate(dataColumnNames(input, rawData))
       for (col in dcols) {
-        maybeUpdateFree(input, itemModel, itemModel[[col]], pname)
+        maybeUpdateFree(input, itemModel, isolate(itemModel[[col]]), pname)
       }
     } else {
       maybeUpdateFree(input, itemModel, im, pname)
@@ -1205,22 +1386,70 @@ shinyServer(function(input, output, session) {
     
     if (hit == 0 || isolate(input$focusedParameterLabel) == "as is") return()
 
-    im <- isolate(getFocusedItem(input, itemModel))
+    im <- isolate(getFocusedItem(input, rawData, itemModel))
     if (is.null(im)) return()
     origFx <- isolate(match(input$focusedItemParameter,
                             getFocusedParameterNames(input, im)))
     if (is.na(origFx)) return()
-
     pname <- names(im$starting)[origFx]
     
     if (isolate(input$focusedItem) == allItemsToken) {
       dcols <- isolate(dataColumnNames(input, rawData))
       for (col in dcols) {
-        maybeUpdateLabel(input, itemModel, itemModel[[col]], pname)
+        maybeUpdateLabel(input, itemModel, isolate(itemModel[[col]]), pname)
       }
     } else {
       maybeUpdateLabel(input, itemModel, im, pname)
     }
+  })
+  
+  output$focusedParameterPriorFeedback <- renderText(feedback[["focusedParameterPrior"]])
+  
+  observe({
+    hit <- input$focusedParameterPriorSetAction
+    
+    if (hit == 0) return()
+    
+    im <- isolate(getFocusedItem(input, rawData, itemModel))
+    if (is.null(im)) return()
+    origFx <- isolate(match(input$focusedItemParameter,
+                            getFocusedParameterNames(input, im)))
+    if (is.na(origFx)) return()
+    pname <- names(im$starting)[origFx]
+
+    if (isolate(input$focusedItem) == allItemsToken) {
+      dcols <- isolate(dataColumnNames(input, rawData))
+      for (col in dcols) {
+        feedback[["focusedParameterPrior"]] <- 
+          updatePriorMode(input, bayesianPrior, itemModel, isolate(itemModel[[col]]), pname, set=TRUE)
+      }
+    } else {
+      feedback[["focusedParameterPrior"]] <-
+        updatePriorMode(input, bayesianPrior, itemModel, im, pname, set=TRUE)
+    }
+  })
+  
+  observe({
+    hit <- input$focusedParameterPriorClearAction
+    
+    if (hit == 0) return()
+    
+    im <- isolate(getFocusedItem(input, rawData, itemModel))
+    if (is.null(im)) return()
+    origFx <- isolate(match(input$focusedItemParameter,
+                            getFocusedParameterNames(input, im)))
+    if (is.na(origFx)) return()
+    pname <- names(im$starting)[origFx]
+    
+    if (isolate(input$focusedItem) == allItemsToken) {
+      dcols <- isolate(dataColumnNames(input, rawData))
+      for (col in dcols) {
+        updatePriorMode(input, bayesianPrior, itemModel, itemModel[[col]], pname, set=FALSE)
+      }
+    } else {
+      updatePriorMode(input, bayesianPrior, itemModel, im, pname, set=FALSE)
+    }
+    feedback[["focusedParameterPrior"]] <- ''
   })
   
   observe({
@@ -1247,7 +1476,7 @@ shinyServer(function(input, output, session) {
   output$debugScriptOutput <- renderText({
     input$debugScriptAction
     validate(need(nrow(rawData$val), "No data is loaded"))
-    str <- try(isolate(toScript(input, rawData, recodeTable, permuteTable, itemModel)), silent=TRUE)
+    str <- try(isolate(toScript(input, rawData, recodeTable, permuteTable, itemModel, bayesianPrior)), silent=TRUE)
     validate(need(!inherits(str, "try-error"),
                   paste("An error occurred. Please report this to the development team.",
                         str, sep="\n")))
@@ -1260,7 +1489,7 @@ shinyServer(function(input, output, session) {
       paste(rawData$stem, '.Rmd', sep='')
     },
     content = function(file) {
-      write(isolate(toScript(input, rawData, recodeTable, permuteTable, itemModel)), file=file)
+      write(isolate(toScript(input, rawData, recodeTable, permuteTable, itemModel, bayesianPrior)), file=file)
     }
   )
 })
