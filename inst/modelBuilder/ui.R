@@ -13,6 +13,7 @@ shinyUI(navbarPage(
                   accept=c('text/csv', 
                            'text/comma-separated-values,text/plain', 
                            '.csv')),
+        textOutput("parseFileFeedback"),
         tags$hr(),
         checkboxInput('dataHeader', 'Header?', TRUE),
         checkboxInput('dataRowNames', 'Row names?', TRUE),

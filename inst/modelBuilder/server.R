@@ -806,7 +806,7 @@ updatePriorMode <- function(input, bayesianPrior, itemModel, im, pname, set) {
 shinyServer(function(input, output, session) {
   feedback <- reactiveValues(newOutcomeAction="", resetRecodeAction="",
                              focusedOutcomeMapAction="", codingFile="",
-                             focusedParameterPrior="")
+                             focusedParameterPrior="", parseFile="")
   rawData <- reactiveValues(val=NULL, name=NULL, exclude=NULL)
   recodeTable <- reactiveValues(val=NULL)
   permuteTable <- reactiveValues(val=NULL)
@@ -917,30 +917,49 @@ shinyServer(function(input, output, session) {
     
     if (is.null(inFile)) return(NULL)
     
-    if (verbose) {
-      cat("read.csv with options", isolate(input$dataRowNames),
-          isolate(input$dataSep), isolate(input$dataQuote), fill=T)
+    rawData$datapath <- inFile$datapath
+    rawData$name <- inFile$name
+  })
+  
+  output$parseFileFeedback <- renderText(feedback[["parseFile"]])
+  
+  observe({
+    if (is.null(rawData$datapath) || !file.exists(rawData$datapath)) return()
+    
+    if (0) {
+      cat("read.csv with options", input$dataRowNames,
+          input$dataSep, input$dataQuote, fill=T)
     }
-    args <- list(inFile$datapath, header=isolate(input$dataHeader),
-                 sep=isolate(input$dataSep), quote=isolate(input$dataQuote),
+    args <- list(rawData$datapath, header=input$dataHeader,
+                 sep=input$dataSep, quote=input$dataQuote,
                  stringsAsFactors=FALSE, check.names=FALSE)
     
-    if (isolate(input$dataRowNames)) {
+    if (input$dataRowNames) {
       args$row.names=1L
     }
     dat <- try(do.call(read.csv, args), silent = TRUE)
     
+    if (inherits(dat, "try-error")) {
+      feedback[["parseFile"]] <- paste("Something went wrong trying to load your file:\n", dat)
+      return()
+    }
+
     hint <- "Try different quote and separator options."
-    validate(need(!inherits(dat, "try-error"),
-                  paste("Something went wrong trying to load your file:\n", dat)))
-    validate(need(nrow(dat) > 0, paste("Dataset appears to have 0 rows.", hint)),
-             need(ncol(dat) > 0, paste("Dataset appears to have 0 columns.", hint)))
+    if (nrow(dat) == 0) {
+      feedback[["parseFile"]] <- paste("Dataset appears to have 0 rows.", hint)
+      return()
+    }
+    if (ncol(dat) == 0) {
+      feedback[["parseFile"]] <- paste("Dataset appears to have 0 columns.", hint)
+      return()
+    }
+
     colnames(dat) <- mxMakeNames(colnames(dat), unique=TRUE)
-    rawData$name <- inFile$name
-    rawData$stem <- sub('\\..{3}$', '', inFile$name, perl=TRUE)
+    rawData$stem <- sub('\\..{3}$', '', rawData$name, perl=TRUE)
     rawData$val <- dat
     
     setupFreqColumnName(session, rawData)
+    feedback[["parseFile"]] <- ""
   })
   
   output$dataContents <- renderTable({
