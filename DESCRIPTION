@@ -10,7 +10,7 @@ Description: This package serves as a tutorial and collection of demo scripts
     for Item Factor Analysis.
 LazyData: yes
 LazyDataCompression: bzip2
-License: GPL (>= 3)
+License: AGPL (>= 3)
 Suggests:
     testthat,
     roxygen2,
