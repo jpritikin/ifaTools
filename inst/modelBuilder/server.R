@@ -699,6 +699,14 @@ genRecodeOutcomesCode <- function(input, rawData, recodeTable, permuteTable) {
     }
   }
   
+  toRev <- intersect(ch, permuteTable$reversed)
+  if (length(toRev)) {
+    xform <- c(xform, paste0("# reverse levels of reversed items\n",
+                             "for (col in ",paste("    ", deparse(toRev), collapse="\n"),") {\n  ",
+                             "data[[col]] <- mxFactor(data[[col]], rev(levels(data[[col]])))",
+                             "\n}"))
+  }
+  
   paste(xform, collapse="\n")
 }
 
@@ -1201,6 +1209,26 @@ shinyServer(function(input, output, session) {
     t(mxSimplify2Array(pt))
   })
   
+  output$reversePicker <- renderUI({
+    cols <- dataColumnNames(input, rawData)
+    revNames <- isolate(permuteTable$reversed)
+    rmask <- !is.na(match(cols, revNames))
+    chooserInput("reverseChooser", "Unreversed", "Reversed",
+                 cols[!rmask], cols[rmask], size = 16, multiple = TRUE)
+  })
+  
+  observe({
+    got <- input$reverseChooser
+    if (is.null(got)) return()
+    
+    oldRev <- isolate(permuteTable$reversed)
+    newRev <- setdiff(union(oldRev, got$right), got$left)
+    if (length(oldRev) == length(newRev) && all(oldRev == newRev)) return()
+
+    if (verbose) cat("reverse chooser", paste(newRev, collapse=","), fill=TRUE)
+    permuteTable$reversed <- newRev
+  })
+  
   output$downloadCoding <- downloadHandler(
     filename = function() {
       paste(rawData$stem, '-config.R', sep='')
@@ -1238,7 +1266,7 @@ shinyServer(function(input, output, session) {
     permuteTable$val <- get(envir=bubble, inherits=FALSE, "permuteTable")
     feedback[["codingFile"]] <- ""
   })
-  
+
   # ------------------------------------------------------------------ Item Model & Parameters
   
   observe({
@@ -1264,9 +1292,14 @@ shinyServer(function(input, output, session) {
       im <- itemModel[[cname]]
       c(Outcomes=length(col),
         Model=im$model, T.a=im$Ta, T.c=im$Tc,
+        Reversed=cname %in% permuteTable$reversed,
         Excluded=cname %in% rawData$exclude)
     }, outcomes, names(outcomes), SIMPLIFY=FALSE)
-    t(mxSimplify2Array(massign))
+    tbl <- t(mxSimplify2Array(massign))
+    for (bcol in c('Reversed','Excluded')) {
+      tbl[tbl[,bcol] == "FALSE", bcol] <- NA
+    }
+    tbl
   })
   
   updateItemModel <- observe({
@@ -1290,7 +1323,6 @@ shinyServer(function(input, output, session) {
     if (fi == allItemsToken) {
       sel <- 'as is'
       choices <- c('as is', 'drm', 'grm', 'nrm')
-      updateCheckboxInput(session, "excludeFocusedItem", value=FALSE)
     } else {
       outcomeMap <- recodeOutcomes(input, rawData, recodeTable)
       outcomes <- length(outcomeMap[[fi]])
@@ -1299,8 +1331,6 @@ shinyServer(function(input, output, session) {
       if (outcomes > 2) choices <- c(choices, 'nrm')
       sel <- isolate(itemModel[[fi]]$model)
       excl <- isolate(any(rawData$exclude == fi))
-      updateCheckboxInput(session, "excludeFocusedItem", value=excl)
-      feedback[['excludeFocusedItem']] <- ''
     }
     updateSelectInput(session, "focusedItemModel", choices=choices, selected=sel)
   })
@@ -1471,24 +1501,25 @@ shinyServer(function(input, output, session) {
     feedback[["focusedParameterPrior"]] <- ''
   })
   
-  observe({
-    yes <- input$excludeFocusedItem
-    fi <- isolate(input$focusedItem)
-    if (fi == allItemsToken) {
-      feedback[['excludeFocusedItem']] <- 'You can only exclude 1 item at a time.'
-      return()
-    }
-    
-    oldExclude <- isolate(rawData$exclude)
-    if (yes) {
-      newEx <- union(oldExclude, fi)
-    } else {
-      newEx <- setdiff(oldExclude, fi)
-    }
-    if (length(newEx) != length(oldExclude)) rawData$exclude <- newEx
+  output$excludePicker <- renderUI({
+    cols <- dataColumnNames(input, rawData)
+    exNames <- isolate(rawData$exclude)
+    emask <- !is.na(match(cols, exNames))
+    chooserInput("excludeChooser", "Included", "Excluded",
+                 cols[!emask], cols[emask], size = 16, multiple = TRUE)
   })
-  
-  output$excludeFocusedItemFeedback <- renderText(feedback[['excludeFocusedItem']])
+
+  observe({
+    got <- input$excludeChooser
+    if (is.null(got)) return()
+    
+    oldRev <- isolate(rawData$exclude)
+    newRev <- setdiff(union(oldRev, got$right), got$left)
+    if (length(oldRev) == length(newRev) && all(oldRev == newRev)) return()
+    
+    if (verbose) cat("exclude chooser", paste(newRev, collapse=","), fill=TRUE)
+    rawData$exclude <- newRev
+  })
   
   # ------------------------------------------------------------------ Preview & Download
   

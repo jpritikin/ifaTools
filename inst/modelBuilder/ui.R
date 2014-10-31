@@ -103,10 +103,8 @@ shinyUI(navbarPage(
                           tableOutput("permuteTable")
                  ),
                  tabPanel("Reverse",
-                          helpText("This is not working yet."),
-                          chooserInput("mychooser", "Available frobs", "Selected frobs",
-                                       row.names(USArrests), c(), size = 10, multiple = TRUE
-                          )
+                          helpText("Items on the right side will be reverse scored."),
+                          uiOutput("reversePicker")
                  ),
                  tabPanel("Import/Export",
                           helpText("You can store the recoding table, outcome orders,",
@@ -138,10 +136,7 @@ shinyUI(navbarPage(
                            min=2, max=25, value=3),
                actionButton("focusedParameterPriorSetAction", label = "Set"),
                actionButton("focusedParameterPriorClearAction", label = "Clear"),
-               textOutput("focusedParameterPriorFeedback"),
-               tags$hr(),
-               checkboxInput("excludeFocusedItem", label = "Exclude", value = FALSE),
-               textOutput("excludeFocusedItemFeedback")
+               textOutput("focusedParameterPriorFeedback")
              ),
              mainPanel(tabsetPanel(
                tabPanel("Factors",
@@ -161,7 +156,11 @@ shinyUI(navbarPage(
                         helpText("Labels"),
                         tableOutput('itemLabelTable'),
                         helpText("Bayesian prior mode"),
-                        tableOutput('itemPriorTable'))
+                        tableOutput('itemPriorTable')),
+               tabPanel("Exclude",
+                        helpText("Choose which items to exclude (if any).",
+                                 "Items on the right side will be excluded."),
+                        uiOutput("excludePicker"))
                ))
            )),
   tabPanel("Script", sidebarLayout(
