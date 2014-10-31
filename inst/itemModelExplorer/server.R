@@ -6,8 +6,7 @@ library(reshape2)
 
 verbose <- FALSE
 
-moveParameter <- function(input, state, newValue) {
-  whichPar <- isolate(input$editPar)
+moveSomeParameter <- function(input, state, whichPar, newValue) {
   pi <- rpf.paramInfo(isolate(state$spec), match(whichPar, names(isolate(state$par))))
   if (!is.na(pi$lower) && newValue < pi$lower) newValue <- pi$lower
   if (!is.na(pi$upper) && newValeu > pi$upper) newValue <- pi$upper
@@ -18,6 +17,11 @@ moveParameter <- function(input, state, newValue) {
     state$par[whichPar] <- newValue
   }
   return(doit)
+}
+
+moveParameter <- function(input, state, newValue) {
+  whichPar <- isolate(input$editPar)
+  moveSomeParameter(input, state, whichPar, newValue)
 }
 
 shinyServer(function(input, output, session) {
@@ -45,6 +49,17 @@ shinyServer(function(input, output, session) {
     if (verbose) cat("set1",hit,fill=T)
     if (moveParameter(input, state, 1)) {
       updateSliderInput(session, "editParValue", value = 1)
+    }
+  })
+  
+  observe({
+    hit <- input$setAllValue0
+    if (is.null(isolate(state$spec))) return()
+    for (pname in names(isolate(state$par))) {
+      doit <- moveSomeParameter(input, state, pname, 0)
+      if (pname == isolate(input$editPar) && doit) {
+        updateSliderInput(session, "editParValue", value = 0)
+      }
     }
   })
   

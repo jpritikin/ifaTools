@@ -13,7 +13,8 @@ shinyUI(pageWithSidebar(
     selectInput('editPar', 'Edit Parameter:', 'a'),
     sliderInput('editParValue', "Parameter Value:", min=-5, max=5, value=0, step=.01, ticks=FALSE),
     fluidRow(actionButton("setParValue0", label = "Set 0"),
-             actionButton("setParValue1", label = "Set 1")),
+             actionButton("setParValue1", label = "Set 1"),
+             actionButton("setAllValue0", label = "Set all 0")),
     hr(),
     tableOutput("parView")
   ),
