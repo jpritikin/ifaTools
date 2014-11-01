@@ -10,7 +10,6 @@ library(digest)
 #options(shiny.reactlog=TRUE)
 
 verbose <- TRUE
-allItemsToken <- '*ALL*'
 
 # Use stupid nouns here to encourage folks to change them
 # to more sensible ability labels.
@@ -85,13 +84,16 @@ getFactorNames <- function(input) {
   sapply(1:numFactors, function (x) input[[ paste0("nameOfFactor", x) ]])
 }
 
-buildParameterTable <- function(input, rawData, itemModel, attr) {
-  fi <- input$focusedItem
-  if (fi == allItemsToken) {
-    dcols <- dataColumnNames(input, rawData)
-  } else {
-    dcols <- fi
-  }
+getFocusedItems <- function(input, rawData, permuteTable) {
+  dcols <- dataColumnNames(input, rawData, permuteTable)
+  range <- sort(match(c(input$focusedItemStart, input$focusedItemEnd), dcols))
+  if (length(range) == 0) return(c())
+  dcols[seq(range[1], range[2])]
+}
+
+buildParameterTable <- function(input, rawData, permuteTable, itemModel, attr) {
+  dcols <- getFocusedItems(input, rawData, permuteTable)
+  if (length(dcols) == 0) return(NULL)
   massign <- lapply(dcols, function (col) {
     im <- itemModel[[col]]
     v <- im[[attr]]
@@ -107,16 +109,11 @@ buildParameterTable <- function(input, rawData, itemModel, attr) {
   tbl
 }
 
-getFocusedItem <- function(input, rawData, itemModel) {
-  fi <- input$focusedItem
-  inames <- dataColumnNames(input, rawData)
+getFocusedItem <- function(input, rawData, permuteTable, itemModel) {
+  inames <- getFocusedItems(input, rawData, permuteTable)
   if (length(inames) == 0) return()
   
-  if (fi == allItemsToken) {
-    im <- itemModel[[ inames[1] ]]
-  } else {
-    im <- itemModel[[fi]]
-  }
+  im <- itemModel[[ inames[1] ]]
   im
 }
 
@@ -211,7 +208,7 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
                 sapply(rawData$exclude, function(col) paste0("\ndata[['", col, "']] <- NULL  # excluded")))
   
   data <- rawData$val
-  dcols <- includedColumnNames(input, rawData)
+  dcols <- includedColumnNames(input, rawData, permuteTable)
   mkSpec <- list("spec <- list()")
 
   mker <- sapply(dcols, function(col) {
@@ -556,10 +553,10 @@ execRecodeRule <- function(rc, outcomes) {
   outcomes
 }
 
-recodeOutcomes <- function(input, rawData, recodeTable) {
+recodeOutcomes <- function(input, rawData, recodeTable, permuteTable) {
   dat <- rawData$val
   if (is.null(dat)) return(NULL)
-  ch <- dataColumnNames(input, rawData)
+  ch <- dataColumnNames(input, rawData, permuteTable)
   outcomes <- lapply(dat[,ch], function(col) {
     sort(unique(col))
   })
@@ -619,7 +616,7 @@ trackRecodeRule <- function(fa1, ix, rc, col) {
 genRecodeOutcomesCode <- function(input, rawData, recodeTable, permuteTable) {
   dat <- rawData$val
   if (is.null(dat)) return(NULL)
-  ch <- includedColumnNames(input, rawData)
+  ch <- includedColumnNames(input, rawData, permuteTable)
   outcomes <- lapply(dat[,ch], function(col) {
     sort(unique(col))
   })
@@ -711,7 +708,7 @@ genRecodeOutcomesCode <- function(input, rawData, recodeTable, permuteTable) {
 }
 
 getFocusedOutcomeDetailUnordered <- function(input, rawData, recodeTable, permuteTable) {
-  outcomes <- recodeOutcomes(input, rawData, recodeTable)  # could accept this as an argument TODO
+  outcomes <- recodeOutcomes(input, rawData, recodeTable, permuteTable)  # could accept this as an argument TODO
   if (input$focusedOutcomeItem != '-') {
     fi <- input$focusedOutcomeItem
     iout <- outcomes[[fi]]
@@ -745,24 +742,30 @@ getFocusedOutcomeDetail <- function(input, rawData, recodeTable, permuteTable) {
   outcomes
 }
 
-codingToScript <- function(recodeTable, permuteTable) {
-  paste("savedCodingVersion = 1",
-        "recodeTable <- ", paste(deparse(recodeTable$val), collapse="\n"),
-        "permuteTable <- ", paste(deparse(permuteTable$val), collapse="\n"),
-        sep="\n")
+AppStateTables <- c("recodeTable", "permuteTable", "itemModel", "bayesianPrior")
+
+dataColumnNamesUnsorted <- function(input, rawData) {
+  dcol <- colnames(rawData$val)
+  if (input$freqColumnName != '-') {
+    dcol <- setdiff(dcol, input$freqColumnName)
+  }
+  dcol
 }
 
-dataColumnNames <- function(input, rawData) {
-  setdiff(colnames(rawData$val), input$freqColumnName)
+dataColumnNames <- function(input, rawData, permuteTable) {
+  dcol <- dataColumnNamesUnsorted(input, rawData)
+  perm <- permuteTable$items
+  if (!is.null(perm) && length(perm) == length(dcol)) dcol <- dcol[perm]
+  dcol
 }
 
-includedColumnNames <- function(input, rawData) {
-  setdiff(colnames(rawData$val), c(input$freqColumnName, rawData$exclude))
+includedColumnNames <- function(input, rawData, permuteTable) {
+  setdiff(dataColumnNames(input, rawData, permuteTable), rawData$exclude)
 }
 
 setupItemModels <- function(input, rawData, itemModel, outcomes) {
   numFactors <- isolate(input$numFactors)
-  dcol <- isolate(dataColumnNames(input, rawData))
+  dcol <- isolate(dataColumnNamesUnsorted(input, rawData))
   for (col in dcol) {
     itemModel[[col]] <- mergeDataAndModel(col, length(outcomes[[col]]), numFactors,
                                           isolate(itemModel[[col]]))
@@ -817,7 +820,7 @@ shinyServer(function(input, output, session) {
                              focusedParameterPrior="", parseFile="")
   rawData <- reactiveValues(val=NULL, name=NULL, exclude=NULL)
   recodeTable <- reactiveValues(val=NULL)
-  permuteTable <- reactiveValues(val=NULL)
+  permuteTable <- reactiveValues(val=NULL, items=NULL, reversed=NULL)
   itemModel <- reactiveValues()  # colname to list(model, Ta, Tc, startingValues, free, labels)
   bayesianPrior <- reactiveValues(map=list())  # label -> value map
 
@@ -832,6 +835,8 @@ shinyServer(function(input, output, session) {
         'rownames(data) <- kct.people[[19]]'))
 
       eval(loader)
+      rawData$datapath <- NULL
+      rawData$name <- NULL
       rawData$loadDemo <- loader
       rawData$stem <- "kct"
       rawData$val <- data
@@ -853,7 +858,7 @@ shinyServer(function(input, output, session) {
                   .Names = "9b162432e63482dee83b819368c73fb4")
       
       isolate({
-        outcomes <- isolate(recodeOutcomes(input, rawData, recodeTable))
+        outcomes <- isolate(recodeOutcomes(input, rawData, recodeTable, permuteTable))
         setupItemModels(input, rawData, itemModel, outcomes)
         for (name in names(outcomes)) {
           itemModel[[name]]$labels[1] <- 'slope'
@@ -871,6 +876,8 @@ shinyServer(function(input, output, session) {
     ))
     eval(loader)
     
+    rawData$datapath <- NULL
+    rawData$name <- NULL
     rawData$loadDemo <- loader
     rawData$stem <- "LSAT6"
     rawData$val <- data
@@ -902,6 +909,8 @@ shinyServer(function(input, output, session) {
     eval(loader)
     
     rawData$loadDemo <- loader
+    rawData$datapath <- NULL
+    rawData$name <- NULL
     rawData$stem <- "science"
     rawData$val <- data
     rawData$exclude <- 'GOTOMUSEUM'
@@ -970,6 +979,11 @@ shinyServer(function(input, output, session) {
     feedback[["parseFile"]] <- ""
   })
   
+  output$unparsedDataContents <- renderText({
+    if (is.null(rawData$datapath)) return()
+    paste(readLines(rawData$datapath, n=6L, warn=FALSE), collapse="\n")
+  })
+  
   output$dataContents <- renderTable({
     dat <- rawData$val
     #    updateTabsetPanel(session, "dataPreviewTabset", "front")  dunno why doesn't work TODO
@@ -979,8 +993,20 @@ shinyServer(function(input, output, session) {
   output$nameOfDataFile <- renderText({ rawData$name })
 
   observe({
-    ch <- dataColumnNames(input, rawData)
-    updateSelectInput(session, "focusedItem", choices=c(allItemsToken, ch))
+    ch <- dataColumnNamesUnsorted(input, rawData)
+    if (length(ch) == 0) return()
+    updateSelectInput(session, "focusedItemStart", choices=ch, selected=ch[[1]])
+    updateSelectInput(session, "focusedItemEnd", choices=ch, selected=ch[[ length(ch) ]])
+  })
+  
+  observe({
+    perm <- permuteTable$items
+    ch <- isolate(dataColumnNamesUnsorted(input, rawData))
+    if (!is.null(perm) && length(perm) == length(ch)) ch <- ch[perm]
+    updateSelectInput(session, "focusedItemStart", choices=ch,
+                      selected=isolate(input$focusedItemStart))
+    updateSelectInput(session, "focusedItemEnd", choices=ch,
+                      selected=isolate(input$focusedItemEnd))
   })
   
   output$numberOfDataRows <- renderText({
@@ -991,7 +1017,7 @@ shinyServer(function(input, output, session) {
     dat <- rawData$val
     if (is.null(dat)) return(NULL)
     
-    ch <- dataColumnNames(input, rawData)
+    ch <- dataColumnNames(input, rawData, permuteTable)
     tbl <- sapply(rawData$val[,ch], function(col) c(Outcomes=length(unique(col)),
                                                     Missing=sum(is.na(col))))
     tbl <- t(tbl)
@@ -1003,7 +1029,7 @@ shinyServer(function(input, output, session) {
   
   observe({
     prevFocus <- isolate(input$focusedOutcomeSet)
-    outcomes <- recodeOutcomes(input, rawData, recodeTable)
+    outcomes <- recodeOutcomes(input, rawData, recodeTable, permuteTable)
     oSetHash <- sapply(outcomes, function(oc) digest(oc, ascii=TRUE))
     ch <- c("-", names(oSetHash[!duplicated(oSetHash)]))
     updateSelectInput(session, "focusedOutcomeSet",
@@ -1012,7 +1038,7 @@ shinyServer(function(input, output, session) {
   })
   
   observe({
-    ch <- dataColumnNames(input, rawData)
+    ch <- dataColumnNames(input, rawData, permuteTable)
     updateSelectInput(session, "focusedOutcomeItem", choices=c("-",ch))
   })
   
@@ -1075,7 +1101,7 @@ shinyServer(function(input, output, session) {
                          from="",
                          to=newOutcome))
     } else if (focusedOutcomeSet != '-') {
-      outcomes <- isolate(recodeOutcomes(input, rawData, recodeTable))
+      outcomes <- isolate(recodeOutcomes(input, rawData, recodeTable, permuteTable))
       oSetHash <- sapply(outcomes, function(col) digest(col, ascii=TRUE))
       nameHash <- oSetHash[focusedOutcomeSet == names(oSetHash)][[1]]
       recodeTable$val <-
@@ -1146,7 +1172,7 @@ shinyServer(function(input, output, session) {
                          action="recode",
                          from=from, to=to))
     } else if (focusedOutcomeSet != '-') {
-      outcomes <- isolate(recodeOutcomes(input, rawData, recodeTable))
+      outcomes <- isolate(recodeOutcomes(input, rawData, recodeTable, permuteTable))
       oSetHash <- sapply(outcomes, function(col) digest(col, ascii=TRUE))
       nameHash <- oSetHash[focusedOutcomeSet == names(oSetHash)][[1]]
       recodeTable$val <-
@@ -1210,7 +1236,7 @@ shinyServer(function(input, output, session) {
   })
   
   output$reversePicker <- renderUI({
-    cols <- dataColumnNames(input, rawData)
+    cols <- dataColumnNames(input, rawData, permuteTable)
     revNames <- isolate(permuteTable$reversed)
     rmask <- !is.na(match(cols, revNames))
     chooserInput("reverseChooser", "Unreversed", "Reversed",
@@ -1229,16 +1255,29 @@ shinyServer(function(input, output, session) {
     permuteTable$reversed <- newRev
   })
   
+  codingToScript <- function() {
+    out <- list("savedCodingVersion = 1")
+    for (tbl in AppStateTables) {
+      out <- c(out, paste(tbl, "<-", paste(deparse(reactiveValuesToList(get(tbl))), collapse="\n")))
+    }
+    paste(out, collapse="\n")
+  }
+  
   output$downloadCoding <- downloadHandler(
     filename = function() {
       paste(rawData$stem, '-config.R', sep='')
     },
     content = function(file) {
-      write(isolate(codingToScript(recodeTable, permuteTable)), file=file)
+      write(isolate(codingToScript()), file=file)
     }
   )
   
   output$codingFileFeedback <- renderText(feedback[["codingFile"]])
+  
+  output$debugSettingsOutput <- renderText({
+    hit <- input$refreshSettingsAction
+    isolate(codingToScript())
+  })
 
   observe({
     inFile <- input$codingFile
@@ -1254,23 +1293,25 @@ shinyServer(function(input, output, session) {
       feedback[["codingFile"]] <- "This does not seem to be a saved coding file."
       return()
     }
-    if (!exists(envir=bubble, inherits=FALSE, "recodeTable")) {
-      feedback[["codingFile"]] <- "Recoding table is missing"
-      return()
+    found <- list()
+    e1 <- as.environment(-1L)
+    for (tbl in AppStateTables) {
+      if (!exists(envir=bubble, inherits=FALSE, tbl)) next
+      rt <- get(envir=bubble, inherits=FALSE, tbl)
+      dest <- get(tbl)
+      for (k in names(rt)) {
+        dest[[k]] <- rt[[k]]
+      }
+      found <- c(found, paste0(tbl,': ', paste0(names(rt), collapse=" ")))
     }
-    if (!exists(envir=bubble, inherits=FALSE, "permuteTable")) {
-      feedback[["codingFile"]] <- "Permutation table is missing"
-      return()
-    }
-    recodeTable$val <- get(envir=bubble, inherits=FALSE, "recodeTable")
-    permuteTable$val <- get(envir=bubble, inherits=FALSE, "permuteTable")
-    feedback[["codingFile"]] <- ""
+    feedback[["codingFile"]] <- paste0("Found the following saved settings:\n\n",
+                                       paste(found, collapse="\n"))
   })
 
   # ------------------------------------------------------------------ Item Model & Parameters
   
   observe({
-    outcomes <- recodeOutcomes(input, rawData, recodeTable)
+    outcomes <- recodeOutcomes(input, rawData, recodeTable, permuteTable)
     if (is.null(outcomes)) return()
     
     numFactors <- input$numFactors
@@ -1284,47 +1325,50 @@ shinyServer(function(input, output, session) {
     setupItemModels(input, rawData, itemModel, outcomes)
   })
   
-  output$itemModelAssignment <- renderTable({
-    if (length(names(itemModel)) == 0) return(NULL)
-    
-    outcomes <- recodeOutcomes(input, rawData, recodeTable)
-    massign <- mapply(function (col, cname) {
-      im <- itemModel[[cname]]
-      c(Outcomes=length(col),
-        Model=im$model, T.a=im$Ta, T.c=im$Tc,
-        Reversed=cname %in% permuteTable$reversed,
-        Excluded=cname %in% rawData$exclude)
-    }, outcomes, names(outcomes), SIMPLIFY=FALSE)
-    tbl <- t(mxSimplify2Array(massign))
-    for (bcol in c('Reversed','Excluded')) {
-      tbl[tbl[,bcol] == "FALSE", bcol] <- NA
+  output$reorderItemsSorterUI <- renderUI({
+    items <- dataColumnNamesUnsorted(input, rawData)
+    if (length(items) == 0) {
+      return(returnOrder("reorderItemsSorter", "No data loaded"))
     }
-    tbl
+    perm <- isolate(permuteTable$items)
+    if (!is.null(perm) && length(items) == length(perm)) items <- items[perm]
+    returnOrder("reorderItemsSorter", items)
+  })
+  
+  observe({
+    newOrder <- input$reorderItemsSorter
+    items <- isolate(dataColumnNamesUnsorted(input, rawData))
+    perm <- match(newOrder, items)
+    oldPerm <- isolate(permuteTable$items)
+    if (!is.null(oldPerm) && length(perm) == length(oldPerm) &&
+          all(perm == oldPerm)) return()
+    if (all(perm == 1:length(perm)) && !is.null(oldPerm)) {
+      permuteTable$items <- NULL
+    } else if (any(perm != 1:length(perm))) {
+      permuteTable$items <- perm
+    }
   })
   
   updateItemModel <- observe({
     newModel <- input$focusedItemModel
-    fi <- isolate(input$focusedItem)
+    fi <- getFocusedItems(input, rawData, permuteTable)
     if (is.null(newModel) || is.null(fi) || newModel == 'as is' || fi == "No data loaded") return()
     if (verbose) cat("change", fi, "item model to", newModel, fill=T)
-    outcomes <- isolate(recodeOutcomes(input, rawData, recodeTable))
-    if (fi == allItemsToken) {
-      dcol <- dataColumnNames(input, rawData)
-      for (col in dcol) {
-        changeItemModel(itemModel, input, length(outcomes[[col]]), col, newModel)
-      }
-    } else {
-      changeItemModel(itemModel, input, length(outcomes[[fi]]), fi, newModel)
+    outcomes <- isolate(recodeOutcomes(input, rawData, recodeTable, permuteTable))
+    for (col in fi) {
+      changeItemModel(itemModel, input, length(outcomes[[col]]), col, newModel)
     }
   })
   
   observe({
-    fi <- input$focusedItem
-    if (fi == allItemsToken) {
+    fi <- getFocusedItems(input, rawData, permuteTable)
+    if (length(fi) == 0) return()
+    if (length(fi) > 1) {
       sel <- 'as is'
       choices <- c('as is', 'drm', 'grm', 'nrm')
     } else {
-      outcomeMap <- recodeOutcomes(input, rawData, recodeTable)
+      fi <- fi[[1]]
+      outcomeMap <- recodeOutcomes(input, rawData, recodeTable, permuteTable)
       outcomes <- length(outcomeMap[[fi]])
       choices <- c('grm')
       if (outcomes == 2) choices <- c('drm', choices)
@@ -1337,22 +1381,22 @@ shinyServer(function(input, output, session) {
   
   output$itemStartingValuesTable <- renderTable({
     if (length(names(itemModel)) == 0) return(NULL)
-    buildParameterTable(input, rawData, itemModel, "starting")
+    buildParameterTable(input, rawData, permuteTable, itemModel, "starting")
   })
   
   output$itemFreeTable <- renderTable({
     if (length(names(itemModel)) == 0) return(NULL)
-    buildParameterTable(input, rawData, itemModel, "free")
+    buildParameterTable(input, rawData, permuteTable, itemModel, "free")
   })
   
   output$itemLabelTable <- renderTable({
     if (length(names(itemModel)) == 0) return(NULL)
-    buildParameterTable(input, rawData, itemModel, "labels")
+    buildParameterTable(input, rawData, permuteTable, itemModel, "labels")
   })
   
   output$itemPriorTable <- renderTable({
     if (length(names(itemModel)) == 0) return(NULL)
-    tbl <- buildParameterTable(input, rawData, itemModel, "labels")
+    tbl <- buildParameterTable(input, rawData, permuteTable, itemModel, "labels")
     map <- bayesianPrior$map
     mapped <- match(tbl[,], names(map))
     mapped[!is.na(mapped)] <- unlist(map[ mapped[!is.na(mapped)] ])
@@ -1368,7 +1412,7 @@ shinyServer(function(input, output, session) {
   })
   
   observe({
-    im <- getFocusedItem(input, rawData, itemModel)
+    im <- getFocusedItem(input, rawData, permuteTable, itemModel)
     if (is.null(im)) return()
     pname <- getFocusedParameterNames(input, im)
     prevSelect <- match(isolate(input$focusedItemParameter), pname)
@@ -1378,7 +1422,7 @@ shinyServer(function(input, output, session) {
   })
   
   observe({
-    im <- getFocusedItem(input, rawData, itemModel)
+    im <- getFocusedItem(input, rawData, permuteTable, itemModel)
     if (is.null(im)) return()
     fx <- match(input$focusedItemParameter,
                 isolate(getFocusedParameterNames(input, im)))
@@ -1392,7 +1436,7 @@ shinyServer(function(input, output, session) {
     if (pi$type == "bound") choices <- c(choices, "inf")
     sel <- computeFreeSelected(im, fx)
     
-    allFocused <- input$focusedItem == allItemsToken
+    allFocused <- length(getFocusedItems(input, rawData, permuteTable)) > 1
     if (allFocused) {
       choices <- c("as is", choices)
       sel <- "as is"
@@ -1409,9 +1453,10 @@ shinyServer(function(input, output, session) {
   })
 
   observe({
-    if (input$focusedParameterFree == "as is") return()
+    if (input$focusedParameterFree == "as is" ||
+          input$focusedParameterFree == "No parameter selected") return()
     
-    im <- getFocusedItem(input, rawData, itemModel)
+    im <- getFocusedItem(input, rawData, permuteTable, itemModel)
     if (is.null(im)) return()
     origFx <- isolate(match(input$focusedItemParameter,
                             getFocusedParameterNames(input, im)))
@@ -1419,14 +1464,9 @@ shinyServer(function(input, output, session) {
     
     pname <- names(im$starting)[origFx]
     
-    allFocused <- isolate(input$focusedItem) == allItemsToken
-    if (allFocused) {
-      dcols <- isolate(dataColumnNames(input, rawData))
-      for (col in dcols) {
-        maybeUpdateFree(input, itemModel, isolate(itemModel[[col]]), pname)
-      }
-    } else {
-      maybeUpdateFree(input, itemModel, im, pname)
+    dcols <- isolate(getFocusedItems(input, rawData, permuteTable))
+    for (col in dcols) {
+      maybeUpdateFree(input, itemModel, isolate(itemModel[[col]]), pname)
     }
   })
   
@@ -1435,20 +1475,16 @@ shinyServer(function(input, output, session) {
     
     if (hit == 0 || isolate(input$focusedParameterLabel) == "as is") return()
 
-    im <- isolate(getFocusedItem(input, rawData, itemModel))
+    im <- isolate(getFocusedItem(input, rawData, permuteTable, itemModel))
     if (is.null(im)) return()
     origFx <- isolate(match(input$focusedItemParameter,
                             getFocusedParameterNames(input, im)))
     if (is.na(origFx)) return()
     pname <- names(im$starting)[origFx]
     
-    if (isolate(input$focusedItem) == allItemsToken) {
-      dcols <- isolate(dataColumnNames(input, rawData))
-      for (col in dcols) {
-        maybeUpdateLabel(input, itemModel, isolate(itemModel[[col]]), pname)
-      }
-    } else {
-      maybeUpdateLabel(input, itemModel, im, pname)
+    dcols <- isolate(getFocusedItems(input, rawData, permuteTable))
+    for (col in dcols) {
+      maybeUpdateLabel(input, itemModel, isolate(itemModel[[col]]), pname)
     }
   })
   
@@ -1459,22 +1495,17 @@ shinyServer(function(input, output, session) {
     
     if (hit == 0) return()
     
-    im <- isolate(getFocusedItem(input, rawData, itemModel))
+    im <- isolate(getFocusedItem(input, rawData, permuteTable, itemModel))
     if (is.null(im)) return()
     origFx <- isolate(match(input$focusedItemParameter,
                             getFocusedParameterNames(input, im)))
     if (is.na(origFx)) return()
     pname <- names(im$starting)[origFx]
 
-    if (isolate(input$focusedItem) == allItemsToken) {
-      dcols <- isolate(dataColumnNames(input, rawData))
-      for (col in dcols) {
-        feedback[["focusedParameterPrior"]] <- 
-          updatePriorMode(input, bayesianPrior, itemModel, isolate(itemModel[[col]]), pname, set=TRUE)
-      }
-    } else {
-      feedback[["focusedParameterPrior"]] <-
-        updatePriorMode(input, bayesianPrior, itemModel, im, pname, set=TRUE)
+    dcols <- isolate(getFocusedItems(input, rawData, permuteTable))
+    for (col in dcols) {
+      feedback[["focusedParameterPrior"]] <- 
+        updatePriorMode(input, bayesianPrior, itemModel, isolate(itemModel[[col]]), pname, set=TRUE)
     }
   })
   
@@ -1483,26 +1514,22 @@ shinyServer(function(input, output, session) {
     
     if (hit == 0) return()
     
-    im <- isolate(getFocusedItem(input, rawData, itemModel))
+    im <- isolate(getFocusedItem(input, rawData, permuteTable, itemModel))
     if (is.null(im)) return()
     origFx <- isolate(match(input$focusedItemParameter,
                             getFocusedParameterNames(input, im)))
     if (is.na(origFx)) return()
     pname <- names(im$starting)[origFx]
     
-    if (isolate(input$focusedItem) == allItemsToken) {
-      dcols <- isolate(dataColumnNames(input, rawData))
-      for (col in dcols) {
-        updatePriorMode(input, bayesianPrior, itemModel, itemModel[[col]], pname, set=FALSE)
-      }
-    } else {
-      updatePriorMode(input, bayesianPrior, itemModel, im, pname, set=FALSE)
+    dcols <- isolate(getFocusedItems(input, rawData, permuteTable))
+    for (col in dcols) {
+      updatePriorMode(input, bayesianPrior, itemModel, itemModel[[col]], pname, set=FALSE)
     }
     feedback[["focusedParameterPrior"]] <- ''
   })
   
   output$excludePicker <- renderUI({
-    cols <- dataColumnNames(input, rawData)
+    cols <- dataColumnNames(input, rawData, permuteTable)
     exNames <- isolate(rawData$exclude)
     emask <- !is.na(match(cols, exNames))
     chooserInput("excludeChooser", "Included", "Excluded",
@@ -1519,6 +1546,24 @@ shinyServer(function(input, output, session) {
     
     if (verbose) cat("exclude chooser", paste(newRev, collapse=","), fill=TRUE)
     rawData$exclude <- newRev
+  })
+  
+  output$itemModelAssignment <- renderTable({
+    if (length(names(itemModel)) == 0) return(NULL)
+    
+    outcomes <- recodeOutcomes(input, rawData, recodeTable, permuteTable)
+    massign <- mapply(function (col, cname) {
+      im <- itemModel[[cname]]
+      c(Outcomes=length(col),
+        Model=im$model, T.a=im$Ta, T.c=im$Tc,
+        Reversed=cname %in% permuteTable$reversed,
+        Excluded=cname %in% rawData$exclude)
+    }, outcomes, names(outcomes), SIMPLIFY=FALSE)
+    tbl <- t(mxSimplify2Array(massign))
+    for (bcol in c('Reversed','Excluded')) {
+      tbl[tbl[,bcol] == "FALSE", bcol] <- NA
+    }
+    tbl
   })
   
   # ------------------------------------------------------------------ Preview & Download

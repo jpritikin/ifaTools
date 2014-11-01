@@ -13,7 +13,6 @@ shinyUI(navbarPage(
                   accept=c('text/csv', 
                            'text/comma-separated-values,text/plain', 
                            '.csv')),
-        textOutput("parseFileFeedback"),
         tags$hr(),
         checkboxInput('dataHeader', 'Header?', TRUE),
         checkboxInput('dataRowNames', 'Row names?', TRUE),
@@ -42,6 +41,10 @@ shinyUI(navbarPage(
                              tags$p("Number of rows:"),
                              verbatimTextOutput("numberOfDataRows"),
                              hr(),
+                             helpText("Unparsed content (first 6 lines):"),
+                             verbatimTextOutput('unparsedDataContents'),
+                             helpText("Parsed content (first 6 lines):"),
+                             textOutput("parseFileFeedback"),
                              tableOutput('dataContents'),
                              helpText("Only the first 6 rows are shown to give",
                                       "you an idea of whether the data loaded",
@@ -105,25 +108,17 @@ shinyUI(navbarPage(
                  tabPanel("Reverse",
                           helpText("Items on the right side will be reverse scored."),
                           uiOutput("reversePicker")
-                 ),
-                 tabPanel("Import/Export",
-                          helpText("You can store the recoding table, outcome orders,",
-                                   "and items marked as reversed in a separate file",
-                                   "to reuse with similar analyses."),
-                          downloadButton('downloadCoding', 'Download'),
-                          tags$hr(),
-                          fileInput('codingFile', paste('Choose a setting save file from',
-                                                        'which to restore the settings'),
-                                    accept=c('text/plain', '.R')),
-                          textOutput("codingFileFeedback")
                  )
                )
              ))),
   tabPanel("Model",
            sidebarLayout(
              sidebarPanel(
-               selectInput("focusedItem", label = "Edit item:",
+               selectInput("focusedItemStart", label = "Edit items from:",
                            choices="No data loaded"),
+               selectInput("focusedItemEnd", label = "to:",
+                           choices="No data loaded"),
+               tags$hr(),
                selectInput("focusedItemModel", label = "Model:",
                            choices=c('drm', 'grm', 'nrm')),
                selectInput("focusedItemParameter", label = "Parameter:",
@@ -147,7 +142,8 @@ shinyUI(navbarPage(
                         textInput("nameOfFactor3", "Factor 3"),
                         textInput("nameOfFactor4", "Factor 4"),
                         textInput("nameOfFactor5", "Factor 5")),
-               tabPanel("Model", tableOutput('itemModelAssignment')),
+               tabPanel("Reorder",
+                        uiOutput('reorderItemsSorterUI')),
                tabPanel("Parameters",
                         helpText("Starting values"),
                         tableOutput('itemStartingValuesTable'),
@@ -160,10 +156,27 @@ shinyUI(navbarPage(
                tabPanel("Exclude",
                         helpText("Choose which items to exclude (if any).",
                                  "Items on the right side will be excluded."),
-                        uiOutput("excludePicker"))
-               ))
+                        uiOutput("excludePicker")),
+               tabPanel("Summary", tableOutput('itemModelAssignment'))
+             ))
            )),
-  tabPanel("Script", sidebarLayout(
+  tabPanel("Settings",
+           sidebarPanel(
+             helpText("You can store all the settings in a separate file",
+                      "to reproduce the current analysis or reuse with similar analyses."),
+             actionButton("refreshSettingsAction", label = "Refresh!"),
+             tags$hr(),
+             downloadButton('downloadCoding', 'Download'),
+             tags$hr(),
+             fileInput('codingFile', paste('Choose a setting save file from',
+                                           'which to restore the settings'),
+                       accept=c('text/plain', '.R')),
+             verbatimTextOutput("codingFileFeedback")),
+           mainPanel(
+             verbatimTextOutput("debugSettingsOutput")
+           )
+  ),
+  tabPanel("Analysis", sidebarLayout(
     sidebarPanel(
       selectInput("boundPriorForm", "Functional form for dichotomous bound prior density",
                   c("Logit-normal", "Beta")),
