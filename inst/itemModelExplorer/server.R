@@ -84,6 +84,12 @@ shinyServer(function(input, output, session) {
     state[['spec']] <- spec
     state[['par']] <- par
   })
+  
+  observe({
+    hit <- input$drawNewParametersAction
+    if (hit == 0) return()
+    state[['par']] <- isolate(rpf.rparam(state[['spec']]))
+  })
 
   observe({
     whichPar <- input$editPar
