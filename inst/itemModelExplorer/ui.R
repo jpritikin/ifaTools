@@ -8,7 +8,7 @@ shinyUI(pageWithSidebar(
     conditionalPanel(
       condition = "input.model == 'nominal'",
       selectInput("nominalTa", "T.a matrix:", c("trend", "id")),
-      selectInput("nominalTc", "T.c matrix:", c("trend", "id"))),
+      selectInput("nominalTc", "T.c matrix:", c("trend", "id", "partial credit"))),
     hr(),
     selectInput('editPar', 'Edit Parameter:', 'a'),
     sliderInput('editParValue', "Parameter Value:", min=-5, max=5, value=0, step=.01, ticks=FALSE),

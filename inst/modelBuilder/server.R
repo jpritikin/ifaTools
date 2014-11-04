@@ -20,10 +20,12 @@ itemToSpec <- function(item) {
   if (is.null(item$model)) browser()
   outcomes <- item$outcomes
   factors <- item$factors
+  # Tc doesn't really matter here
   switch(item$model,
          'drm' = rpf.drm(factors = factors),
          'grm' = rpf.grm(outcomes, factors = factors),
-         'nrm' = rpf.nrm(outcomes, factors = factors, T.a=item$Ta, T.c=item$Tc))
+         'nrm' = rpf.nrm(outcomes, factors = factors, T.a=item$Ta,
+                         T.c=ifelse(item$Tc == 'partial credit', 'id', item$Tc)))
 }
 
 mergeDataAndModel <- function(col, outcomes, factors, item) {
@@ -87,7 +89,7 @@ getFactorNames <- function(input) {
 getFocusedItems <- function(input, rawData, permuteTable) {
   dcols <- dataColumnNames(input, rawData, permuteTable)
   range <- sort(match(c(input$focusedItemStart, input$focusedItemEnd), dcols))
-  if (length(range) == 0) return(c())
+  if (length(range) != 2) return(c())
   dcols[seq(range[1], range[2])]
 }
 
@@ -218,7 +220,13 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
       str <- c(str, ",outcomes=", im$outcomes)
     }
     if (im$model == "nrm") {
-      str <- c(str, ",T.a='", im$Ta, "', T.c='", im$Tc, "'")
+      tc <- im$Tc
+      if (tc == 'partial credit') {
+        tc <- paste0("lower.tri(diag(", im$outcomes-1, "),TRUE) * -1")
+      } else {
+        tc <- paste0("'",tc,"'")
+      }
+      str <- c(str, ",T.a='", im$Ta, "', T.c=", tc)
     }
     paste0(c(str, ")"), collapse="")
   })
@@ -443,7 +451,7 @@ gaussModel <- mxModel(model='gaussModel', priorParam, gaussM, gaussSD,
     paste0("output: html_document"),
     "---\n",
     "```{r}",
-    "options(width=120)",
+    "options(width=120, scipen=2)",
     "suppressPackageStartupMessages(library(OpenMx))",
     "suppressPackageStartupMessages(library(rpf))",
     "suppressPackageStartupMessages(library(ifaTools))",
@@ -486,7 +494,7 @@ gaussModel <- mxModel(model='gaussModel', priorParam, gaussM, gaussSD,
     "```",
     "",
     "A item factor model was fit with `r length(factors)`
-factors (`r factors`), -2LL=`r round(m1Fit$output$fit,1)`.",
+factors (`r factors`), -2LL=$`r m1Fit$output$fit`$.",
     "The condition number of the information matrix was `r round(m1Fit$output$conditionNumber)`.",
     "",
     "```{r,fig.height=2}
@@ -1009,6 +1017,16 @@ shinyServer(function(input, output, session) {
                       selected=isolate(input$focusedItemEnd))
   })
   
+  observe({
+    hits <- input$selectAllItemsAction
+    if (hits == 0) return()
+    
+    ch <- isolate(dataColumnNames(input, rawData, permuteTable))
+    if (length(ch) == 0) return()
+    updateSelectInput(session, "focusedItemStart", selected=ch[[1]])
+    updateSelectInput(session, "focusedItemEnd", selected=ch[[ length(ch) ]])
+  })
+  
   output$numberOfDataRows <- renderText({
     nrow(rawData$val)
   })
@@ -1349,7 +1367,7 @@ shinyServer(function(input, output, session) {
     }
   })
   
-  updateItemModel <- observe({
+  observe({
     newModel <- input$focusedItemModel
     fi <- getFocusedItems(input, rawData, permuteTable)
     if (is.null(newModel) || is.null(fi) || newModel == 'as is' || fi == "No data loaded") return()
@@ -1360,12 +1378,40 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  output$focusedItemModelTcFeedback <- renderText(feedback[['focusedItemModelTc']])
+  
+  observe({
+    newTc <- input$focusedItemModelTc
+    fi <- getFocusedItems(input, rawData, permuteTable)
+    if (is.null(newTc) || is.null(fi) || newTc == 'as is' || fi == "No data loaded") return()
+    if (verbose) cat("change", fi, "item model Tc to", newTc, fill=T)
+    found <- FALSE
+    numFactors <- isolate(input$numFactors)
+    for (col in fi) {
+      im <- isolate(itemModel[[col]])
+      if (is.null(im$model) || im$model != "nrm") next
+      found <- TRUE
+      if (newTc != im$Tc) {
+        if (verbose) cat("change",col,"from", im$Tc,"to", newTc,fill=T)
+        im$Tc <- newTc
+        itemModel[[col]] <- im
+      }
+    }
+    if (!found) {
+      feedback[['focusedItemModelTc']] <- "Intercept basis options are only available for the nominal model."
+    } else {
+      feedback[['focusedItemModelTc']] <- ''
+    }
+  })
+  
   observe({
     fi <- getFocusedItems(input, rawData, permuteTable)
     if (length(fi) == 0) return()
+    Tsel <- 'as is'
     if (length(fi) > 1) {
       sel <- 'as is'
       choices <- c('as is', 'drm', 'grm', 'nrm')
+      Tchoices <- c('as is', 'trend', 'id', 'partial credit')
     } else {
       fi <- fi[[1]]
       outcomeMap <- recodeOutcomes(input, rawData, recodeTable, permuteTable)
@@ -1373,10 +1419,14 @@ shinyServer(function(input, output, session) {
       choices <- c('grm')
       if (outcomes == 2) choices <- c('drm', choices)
       if (outcomes > 2) choices <- c(choices, 'nrm')
-      sel <- isolate(itemModel[[fi]]$model)
-      excl <- isolate(any(rawData$exclude == fi))
+      im <- isolate(itemModel[[fi]])
+      sel <- im$model
+      if (sel == 'nrm') {
+        Tsel <- im$Tc
+      }
     }
     updateSelectInput(session, "focusedItemModel", choices=choices, selected=sel)
+    updateSelectInput(session, "focusedItemModelTc", choices=Tchoices, selected=Tsel)
   })
   
   output$itemStartingValuesTable <- renderTable({

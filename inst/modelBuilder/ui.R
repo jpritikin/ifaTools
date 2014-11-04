@@ -118,9 +118,13 @@ shinyUI(navbarPage(
                            choices="No data loaded"),
                selectInput("focusedItemEnd", label = "to:",
                            choices="No data loaded"),
+               actionButton("selectAllItemsAction", label = "Focus all items"),
                tags$hr(),
                selectInput("focusedItemModel", label = "Model:",
                            choices=c('drm', 'grm', 'nrm')),
+               selectInput("focusedItemModelTc", label = "Nominal Tc:",
+                           choices=c('as is')),
+               textOutput("focusedItemModelTcFeedback"),
                selectInput("focusedItemParameter", label = "Parameter:",
                            choices="No item selected"),
                selectInput("focusedParameterFree", label = "Free",
@@ -192,7 +196,8 @@ shinyUI(navbarPage(
         li('Download your analysis script.'),
         li('Open it in RStudio.'),
         li('Update the pathname to your data (if necessary).'),
-        li('Click the Knit/HTML button at the top of your document.')
+        li('Click the Knit/HTML button at the top of your document.'),
+        li('Note: RStudio does not render numbers or equations correctly. Open the HTML in a regular browser.')
       ))
     ),
     mainPanel(

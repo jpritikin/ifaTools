@@ -63,14 +63,19 @@ shinyServer(function(input, output, session) {
     }
   })
   
+
   observe({
     if (verbose) cat("reset to new model/outcome", fill=T)
     Ta <- input$nominalTa
     Tc <- input$nominalTc
+    outcomes <- input$outcomes
+    if (Tc == "partial credit") {
+      Tc <- lower.tri(diag(outcomes-1),TRUE) * -1
+    }
     spec <- switch(input$model,
                    'dichotomous' = rpf.drm(),
-                   'graded' = rpf.grm(input$outcomes),
-                   'nominal' = rpf.nrm(input$outcomes, T.a=Ta, T.c=Tc))
+                   'graded' = rpf.grm(outcomes),
+                   'nominal' = rpf.nrm(outcomes, T.a=Ta, T.c=Tc))
     par <- rpf.rparam(spec)
     
     parNames <- names(rpf.rparam(spec))
