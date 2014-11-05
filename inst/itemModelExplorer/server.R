@@ -88,7 +88,15 @@ shinyServer(function(input, output, session) {
   observe({
     hit <- input$drawNewParametersAction
     if (hit == 0) return()
-    state[['par']] <- isolate(rpf.rparam(state[['spec']]))
+    if (hit %% 2 == 1 && isolate(input$model) == "nominal") {
+      spec <- isolate(state[['spec']])
+      par <- rpf.rparam(spec)
+      par[2] <- .4/par[1]
+      par[3:spec$outcomes] <- 0  # zero alf2..alfn parameters (simpler)
+      state[['par']] <- par
+    } else {
+      state[['par']] <- isolate(rpf.rparam(state[['spec']]))
+    }
   })
 
   observe({
