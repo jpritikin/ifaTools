@@ -34,6 +34,81 @@ SitemPlot <- function(sout, itemName, ..., showSampleSize=TRUE) {
     plot
 }
 
+#' Plot expected and observed table from SitemFit
+#'
+#' WARNING: This function is under development. The API may change in a future release.
+#'
+#' @param grp an IFA group
+#' @param itemName name of item to plot
+#' @param ...  Not used.  Forces remaining arguments to be specified by name.
+#' @param width sets the x axis to [-width,width]
+#' @param dataBins number of partitions for the latent scores
+#' @param basis the basis vector in the latent space
+#' @param factor the score to use (TODO: should be a function of the basis vector?)
+#' @export
+iccPlot <- function(grp, itemName, ..., width=3, dataBins=11, basis=c(1), factor=1) {
+    garbageArguments <- list(...)
+    if (length(garbageArguments) > 0) {
+        stop("Values for the '...' argument are invalid; use named arguments")
+    }
+
+    basis <- basis / sqrt(sum(basis^2))
+    
+  ix <- match(itemName, colnames(grp$param))
+  if (length(ix) != 1 || is.na(ix)) stop(paste("Can't find", itemName))
+  
+  labels <- levels(grp$data[[itemName]])
+  spec1 <- grp$spec[[ix]]
+  pm <- t(rpf.prob(spec1, grp$param[1:rpf.numParam(spec1),ix], basis %*% t(seq(-width, width, .1))))
+  icc <- as.data.frame(melt(pm, varnames=c("theta",'category')))
+  icc$theta <- seq(-width, width, .1)
+  icc$category <- ordered(icc$category, labels=labels)
+  icc$type <- 'expected'
+  
+  score <- grp$score[,factor]
+  breaks <- seq(min(score, na.rm=TRUE),
+                max(score, na.rm=TRUE),
+                length.out=dataBins+1)
+  bin <- unclass(cut(score, breaks, include.lowest = TRUE))
+  
+  eout <- array(dim=c(dataBins, spec1@outcomes+1))
+  est <- numeric(dataBins)
+  
+  for (px in 1:dataBins) {
+    t <- table(grp$data[[itemName]][bin==px])
+    est[px] <- sum(t)
+    eout[px,2:(spec1@outcomes+1)] <- t / sum(t)
+  }
+  eout[,1] <- ((c(breaks,0) + c(0,breaks))/2)[2:(dataBins+1)]
+  bin.n <- data.frame(n=est, theta=eout[,1])
+  
+  edf <- melt(as.data.frame(eout), id.vars=c('V1'),
+              variable.name="category")
+  edf$category <- ordered(unclass(edf$category), labels=labels)
+  edf$theta <- edf$V1
+  edf$V1 <- NULL
+  edf$type <- 'observed'
+  
+  both <- rbind(edf, icc)
+  both$type <- mxFactor(both$type, levels=c('expected', 'observed'))
+  
+  plot <- ggplot(both, aes(theta, value)) +
+     facet_wrap(~type) +
+    ylim(0,1) + xlim(-width,width) + labs(y="probability") +
+    geom_text(data=bin.n, aes(label=n, x=theta), y = 1, size=1.5, angle=90)
+  guide.style <- guide_legend(keywidth=.1, keyheight=.5, direction = "horizontal", title.position = "top",
+                              label.position="bottom", label.hjust = 0.5, label.vjust = .5,
+                              label.theme = element_text(angle = 90, size=8))
+  if (length(labels) <= 12) {
+    plot <- plot + geom_line(aes(color=category, linetype=category)) +
+      guides(color = guide.style, linetype = guide.style)
+  } else {
+    plot <- plot + geom_line(aes(color=category)) + 
+      guides(color = guide.style)
+  }
+  plot + labs(title = itemName)
+}
+
 #' Create item response map table
 #'
 #' Categories are placed at the mean score of the examinees who picked
