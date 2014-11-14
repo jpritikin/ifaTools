@@ -9,11 +9,15 @@ library(digest)
 #options(shiny.trace=TRUE)
 #options(shiny.reactlog=TRUE)
 
-verbose <- TRUE
+verbose <- FALSE
 
 # Use stupid nouns here to encourage folks to change them
 # to more sensible ability labels.
 sillyFactorName <- c('teacup','puppy','oink','sun','moon')
+
+AppStateTables <- c("recodeTable", "permuteTable", "itemModel", "bayesianPrior")
+AppStateSliderInput <- c("numFactors")
+AppStateTextInput <- paste0("nameOfFactor", 1:5)
 
 itemToSpec <- function(item) {
 #  cat("itemToSpec", item$model, item$outcomes, item$factors, fill=T)
@@ -176,7 +180,7 @@ maybeUpdateLabel <- function(input, itemModel, im, pname) {
   if (is.na(sel)) sel <- "none"
   if (sel == newLabel) return()
   
-  if (newLabel == "none") {
+  if (newLabel == "none" || !nzchar(newLabel)) {
     im$labels[fx] <- NA
   } else {
     im$labels[fx] <- newLabel
@@ -451,7 +455,7 @@ gaussModel <- mxModel(model='gaussModel', priorParam, gaussM, gaussSD,
     paste0("output: html_document"),
     "---\n",
     "```{r}",
-    "options(width=120, scipen=2)",
+    "options(width=120, scipen=2, digits=1)",
     "suppressPackageStartupMessages(library(OpenMx))",
     "suppressPackageStartupMessages(library(rpf))",
     "suppressPackageStartupMessages(library(ifaTools))",
@@ -460,8 +464,6 @@ gaussModel <- mxModel(model='gaussModel', priorParam, gaussM, gaussSD,
     "",
     paste0(loadData, collapse=""),
     "",
-    paste0("if (ncol(data) != ",length(dcols)+numExtraCol,
-           ") stop('Expecting ",length(dcols)+numExtraCol," columns')"),
     paste0("factors <- ", paste0(deparse(fnames)), collapse=""),
     "numFactors <- length(factors)",
     mkSpec,
@@ -750,8 +752,6 @@ getFocusedOutcomeDetail <- function(input, rawData, recodeTable, permuteTable) {
   outcomes
 }
 
-AppStateTables <- c("recodeTable", "permuteTable", "itemModel", "bayesianPrior")
-
 dataColumnNamesUnsorted <- function(input, rawData) {
   dcol <- colnames(rawData$val)
   if (input$freqColumnName != '-') {
@@ -798,7 +798,7 @@ updatePriorMode <- function(input, bayesianPrior, itemModel, im, pname, set) {
     if (!(im$model == 'drm' && (pname == 'g' || pname == 'u')))
       return("Can only set prior on dichotomous (drm) bound parameters.")
     prior <- isolate(input$focusedParameterPrior)
-    if (is.na(oldLabel)) {
+    if (is.na(oldLabel) || !nzchar(oldLabel)) {
       oldLabel <- paste0(im$name,"_",pname)
       im$labels[fx] <- oldLabel
       itemModel[[im$name]] <- im
@@ -1036,7 +1036,7 @@ shinyServer(function(input, output, session) {
     if (is.null(dat)) return(NULL)
     
     ch <- dataColumnNames(input, rawData, permuteTable)
-    tbl <- sapply(rawData$val[,ch], function(col) c(Outcomes=length(unique(col)),
+    tbl <- sapply(rawData$val[,ch,drop=FALSE], function(col) c(Outcomes=length(unique(col)),
                                                     Missing=sum(is.na(col))))
     tbl <- t(tbl)
     rownames(tbl) <- ch
@@ -1049,10 +1049,11 @@ shinyServer(function(input, output, session) {
     prevFocus <- isolate(input$focusedOutcomeSet)
     outcomes <- recodeOutcomes(input, rawData, recodeTable, permuteTable)
     oSetHash <- sapply(outcomes, function(oc) digest(oc, ascii=TRUE))
-    ch <- c("-", names(oSetHash[!duplicated(oSetHash)]))
+    ch <- names(oSetHash[!duplicated(oSetHash)])
+    if (length(ch) == 0) return()
     updateSelectInput(session, "focusedOutcomeSet",
-                      choices=ch,
-                      selected=ifelse(!is.na(match(prevFocus, ch)), prevFocus, '-'))
+                      choices=c('-', ch),
+                      selected=ifelse(!is.na(match(prevFocus, ch)), prevFocus, ch[1]))
   })
   
   observe({
@@ -1276,8 +1277,11 @@ shinyServer(function(input, output, session) {
   codingToScript <- function() {
     out <- list("savedCodingVersion = 1")
     for (tbl in AppStateTables) {
-      out <- c(out, paste(tbl, "<-", paste(deparse(reactiveValuesToList(get(tbl))), collapse="\n")))
+      dat <- paste(deparse(reactiveValuesToList(get(tbl))), collapse="\n")
+      out <- c(out, paste(tbl, "<-", dat))
     }
+    inputState <- reactiveValuesToList(input)[c(AppStateSliderInput, AppStateTextInput)]
+    out <- c(out, paste("input <-", paste(deparse(inputState), collapse="\n")))
     paste(out, collapse="\n")
   }
   
@@ -1315,12 +1319,22 @@ shinyServer(function(input, output, session) {
     e1 <- as.environment(-1L)
     for (tbl in AppStateTables) {
       if (!exists(envir=bubble, inherits=FALSE, tbl)) next
-      rt <- get(envir=bubble, inherits=FALSE, tbl)
+      rt <- mget(tbl, bubble, ifnotfound=list(NULL))[[tbl]]
       dest <- get(tbl)
       for (k in names(rt)) {
         dest[[k]] <- rt[[k]]
       }
       found <- c(found, paste0(tbl,': ', paste0(names(rt), collapse=" ")))
+    }
+    inputState <- mget("input", bubble, ifnotfound=list(NULL))[["input"]]
+    if (!is.null(inputState)) {
+      for (elem in AppStateSliderInput) {
+        updateSliderInput(session, elem, value=inputState[[elem]])
+      }
+      for (elem in AppStateTextInput) {
+        updateTextInput(session, elem, value=inputState[[elem]])
+      }
+      found <- c(found, paste0("input",': ',paste0(c(AppStateSliderInput, AppStateTextInput), collapse=" ")))
     }
     feedback[["codingFile"]] <- paste0("Found the following saved settings:\n\n",
                                        paste(found, collapse="\n"))
@@ -1369,7 +1383,7 @@ shinyServer(function(input, output, session) {
   
   observe({
     newModel <- input$focusedItemModel
-    fi <- getFocusedItems(input, rawData, permuteTable)
+    fi <- isolate(getFocusedItems(input, rawData, permuteTable))
     if (is.null(newModel) || is.null(fi) || newModel == 'as is' || fi == "No data loaded") return()
     if (verbose) cat("change", fi, "item model to", newModel, fill=T)
     outcomes <- isolate(recodeOutcomes(input, rawData, recodeTable, permuteTable))
@@ -1408,10 +1422,10 @@ shinyServer(function(input, output, session) {
     fi <- getFocusedItems(input, rawData, permuteTable)
     if (length(fi) == 0) return()
     Tsel <- 'as is'
+    Tchoices <- c('as is', 'trend', 'id', 'partial credit')
     if (length(fi) > 1) {
       sel <- 'as is'
       choices <- c('as is', 'drm', 'grm', 'nrm')
-      Tchoices <- c('as is', 'trend', 'id', 'partial credit')
     } else {
       fi <- fi[[1]]
       outcomeMap <- recodeOutcomes(input, rawData, recodeTable, permuteTable)
@@ -1421,8 +1435,10 @@ shinyServer(function(input, output, session) {
       if (outcomes > 2) choices <- c(choices, 'nrm')
       im <- isolate(itemModel[[fi]])
       sel <- im$model
-      if (sel == 'nrm') {
+      if (length(sel) && sel == 'nrm') {
         Tsel <- im$Tc
+      } else {
+        Tchoices <- 'as is'
       }
     }
     updateSelectInput(session, "focusedItemModel", choices=choices, selected=sel)
