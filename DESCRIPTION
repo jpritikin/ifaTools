@@ -21,6 +21,6 @@ Depends:
     reshape2,
     rpf (>= 0.40),
     OpenMx (>= 2.0),
-    R (>= 2.14.0),
+    R (>= 2.14.0)
 VignetteBuilder: knitr
 URL: https://github.com/jpritikin/ifaTools
