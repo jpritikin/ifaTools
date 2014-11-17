@@ -153,9 +153,12 @@ maybeUpdateFree <- function(input, itemModel, im, pname) {
   if (sel == input$focusedParameterFree) return()
   
   if (input$focusedParameterFree == "Free") {
+    if (verbose) cat("free", pname, "of", im$name, fill=TRUE)
     im$free[fx] <- TRUE
     im$starting[fx] <- rpf.rparam(spec)[fx]
   } else {
+    if (verbose) cat("fixed", pname, "of", im$name, "to",
+                     input$focusedParameterFree, fill=TRUE)
     im$free[fx] <- FALSE
     pi <- rpf.paramInfo(spec, fx)
     if (pi$type == 'bound' && input$focusedParameterFree == 'inf') {
@@ -1522,7 +1525,7 @@ shinyServer(function(input, output, session) {
     if (input$focusedParameterFree == "as is" ||
           input$focusedParameterFree == "No parameter selected") return()
     
-    im <- getFocusedItem(input, rawData, permuteTable, itemModel)
+    im <- isolate(getFocusedItem(input, rawData, permuteTable, itemModel))
     if (is.null(im)) return()
     origFx <- isolate(match(input$focusedItemParameter,
                             getFocusedParameterNames(input, im)))
