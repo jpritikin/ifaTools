@@ -312,13 +312,13 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
   
   ltbl <- table(labels)
   if (any(ltbl > 1)) {
-    itemInit <- c(itemInit, "hasLabel <- !is.na(imat$labels)")
+    itemInit <- c(itemInit,
+                  "hasLabel <- !is.na(imat$labels)",
+                  paste0("for (lab1 in unique(imat$labels[hasLabel])) {
+  imat$values[hasLabel & imat$labels==lab1] <- 
+    sample(imat$values[hasLabel & imat$labels==lab1], 1)
+}"))
   }
-  itemInit <- c(itemInit, sapply(
-    names(ltbl[ltbl > 1]), function(lab) {
-      paste0("imat$values[hasLabel & imat$labels=='", lab, "'] <- 
-    sample(imat$values[hasLabel & imat$labels=='", lab, "'], 1)")
-    }))
   
   itemInit <- paste(itemInit, collapse="\n")
   
@@ -1450,7 +1450,20 @@ shinyServer(function(input, output, session) {
   
   output$itemStartingValuesTable <- renderTable({
     if (length(names(itemModel)) == 0) return(NULL)
-    buildParameterTable(input, rawData, permuteTable, itemModel, "starting")
+    sv <- buildParameterTable(input, rawData, permuteTable, itemModel, "starting")
+    
+    # adjust for equality constraints
+    labels <- buildParameterTable(input, rawData, permuteTable, itemModel, "labels")
+    ltbl <- table(labels)
+    if (any(ltbl > 1)) {
+      hasLabel <- !is.na(labels)
+      for (lab in names(ltbl[ltbl > 1])) {
+        sv[hasLabel & labels== lab] <-
+          sample(sv[hasLabel & labels==lab], 1)
+      }
+    }
+
+    sv
   })
   
   output$itemFreeTable <- renderTable({
