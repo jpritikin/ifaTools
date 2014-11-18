@@ -10,6 +10,7 @@ github,
 if (packageVersion("devtools") < 1.6) {
   install.packages("devtools")
 }
+require("devtools")
 devtools::install_github("jpritikin/ifaTools")
 ```
 
