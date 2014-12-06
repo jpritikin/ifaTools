@@ -13,9 +13,9 @@ LazyDataCompression: bzip2
 License: AGPL (>= 3)
 Suggests:
     testthat,
-    roxygen2,
-    knitr
+    roxygen2
 Depends:
+    knitr (>= 1.8),
     shiny (>= 0.10),
     ggplot2,
     reshape2,
