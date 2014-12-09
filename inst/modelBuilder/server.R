@@ -451,6 +451,27 @@ gaussModel <- mxModel(model='gaussModel', priorParam, gaussM, gaussSD,
     browser()
   }
   
+  doPlots <- c()
+  if (length(fnames)) {
+	  doPlots <- c("",
+		       "```{r,fig.height=2}
+map1 <- itemResponseMap(m1Grp, factor=1)
+ggplot(map1, aes(x=score, y=item, label=outcome)) +
+  geom_text(size=4, position=position_jitter(h=.25))
+```",
+    "",
+    "```{r,fig.height=3}
+pl <- lapply(names(sfit), function(item) { SitemPlot(sfit, item) })
+for (px in 1:length(pl)) {
+  print(pl[[px]])
+}
+
+basis <- rep(0, length(factors))
+basis[1] <- 1
+plotInformation(m1Grp, width=5, basis=basis)
+```")
+  }
+
   paste(
     "---",
     paste0('title: "',rawData$stem, '"'),
@@ -498,8 +519,8 @@ gaussModel <- mxModel(model='gaussModel', priorParam, gaussM, gaussSD,
     paste0("m1Grp <- as.IFAgroup(", fitIFAgroup ,", minItemsPerScore=1L)"),
     "```",
     "",
-    "A item factor model was fit with `r length(factors)`
-factors (`r factors`), -2LL=$`r m1Fit$output$fit`$.",
+    "An item factor model was fit with `r length(factors)`
+factors (`r ifelse(length(factors), factors, '-')`), -2LL=$`r m1Fit$output$fit`$.",
     "The condition number of the information matrix was `r round(m1Fit$output$conditionNumber)`.",
     "",
     "```{r,fig.height=2}
@@ -520,23 +541,7 @@ sfit <- SitemFit(m1Grp)
 tbl <- t(sapply(sfit, function(r) c(n=r$n, df=r$df, stat=r$statistic, pval=r$pval)))
 print(xtable(tbl, paste0('Sum-score item-wise fit')))
 ```",
-    "",
-    "```{r,fig.height=2}
-map1 <- itemResponseMap(m1Grp, factor=1)
-ggplot(map1, aes(x=score, y=item, label=outcome)) +
-  geom_text(size=4, position=position_jitter(h=.25))
-```",
-    "",
-    "```{r,fig.height=3}
-pl <- lapply(names(sfit), function(item) { SitemPlot(sfit, item) })
-for (px in 1:length(pl)) {
-  print(pl[[px]])
-}
-
-basis <- rep(0, length(factors))
-basis[1] <- 1
-plotInformation(m1Grp, width=5, basis=basis)
-```",
+      paste(doPlots, collapse="\n"),
     "",
     paste0("```{r}
 summary(m1Fit", getRefModels, ")
