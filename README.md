@@ -7,7 +7,8 @@ The purpose of `ifaTools` is to collect useful tools for conducting Item Factor 
 github,
 
 ```R
-if (packageVersion("devtools") < 1.6) {
+v <- try(packageVersion("devtools"))
+if (is(v, "try-error") || v < 1.6) {
   install.packages("devtools")
 }
 require("devtools")
