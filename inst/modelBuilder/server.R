@@ -339,10 +339,7 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
     priorInit <- c(priorInit,
                    "",
                    paste0("priorLabels <- ", paste0(deparse(bmodeNames), collapse="")),
-                   paste0("priorParam <- mxMatrix(name='priorParam', nrow=1, ncol=length(priorLabels),
-               free=TRUE, labels=priorLabels)"),
-                   "priorParam$values <- imat$values[ match(priorParam$labels, imat$labels) ]",
-                   "priorMode <- c(priorParam$values)")
+                   "priorMode <- rep(NA, length(priorLabels))")
     code <- rle(as.character(bmode))
     val <- code$values
     starts <- cumsum(c(1, code$lengths))[c(rep(TRUE, length(val)),FALSE)]
@@ -354,53 +351,19 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
         paste0("priorMode[",start,":",(start+len),"] <- ",v1)
       }, starts, lens - 1L, val, SIMPLIFY=FALSE))
     }
-    priorInit <- c(priorInit, "")
-    
+
     if (input$boundPriorForm == "Beta") {
       priorInit <- c(priorInit,
-                     "calcBetaParam <- function(mode, strength) {
-  a <- plogis(mode) * strength
-  b <- strength - a
-  c(a=a, b=b, c=log(beta(a+1,b+1)))
-}",
-                     "betaParam <- sapply(priorMode, calcBetaParam, strength=5)",
-                     "betaA <- mxMatrix(name='betaA', values=betaParam['a',,drop=FALSE])",
-                     "betaB <- mxMatrix(name='betaB', values=betaParam['b',,drop=FALSE])",
-                     "betaC <- mxMatrix(name='betaC', values=betaParam['c',,drop=FALSE])",
-                     "betaFit <- mxAlgebra(2 * sum((betaA + betaB)*log(exp(priorParam)+1) -
-   betaA * priorParam + betaC), name='betaFit')",
-                     "betaGrad <- mxAlgebra(2*(betaB-(betaA+betaB)/(exp(priorParam) + 1)),
-   name='betaGrad', dimnames=list(c(),priorParam$labels))",
-                     "betaHess <- mxAlgebra(vec2diag(2*(exp(priorParam)*(betaA+betaB) / (exp(priorParam) + 1)^2)),
-                                           name='betaHess',
-                                           dimnames=list(priorParam$labels, priorParam$labels))",
-                     "\n# Create a model that will evaluate to the log likelihood of the beta prior
-# and provide suitable derivatives for the optimizer.
-betaModel <- mxModel(model='betaModel', priorParam, betaA, betaB, betaC,
-    betaFit, betaGrad, betaHess,
-    mxFitFunctionAlgebra('betaFit', gradient='betaGrad', hessian='betaHess'))",
-                     "\ncontainer <- mxModel(model='container', itemModel, betaModel,
-  mxFitFunctionMultigroup(groups=c('itemModel.fitfunction', 'betaModel.fitfunction')))")
+                     "priorModel <- univariatePrior('beta', priorLabels, priorMode)")
     } else if (input$boundPriorForm == "Logit-normal") {
       priorInit <- c(priorInit,
-                     "gaussM <- mxMatrix(name='gaussM', nrow=1, ncol=length(priorMode), values=priorMode)",
-                     "gaussSD <- mxMatrix(name='gaussSD', nrow=1, ncol=length(priorMode), values=.5)",
-                     "gaussFit <- mxAlgebra(sum(log(2*pi) + 2*log(gaussSD) +
-    (priorParam-gaussM)^2/gaussSD^2), name='gaussFit')",
-                     "gaussGrad <- mxAlgebra(2*(priorParam - gaussM)/gaussSD^2, name='gaussGrad',
-    dimnames=list(c(),priorParam$labels))",
-                     "gaussHess <- mxAlgebra(vec2diag(2/gaussSD^2), name='gaussHess',
-    dimnames=list(priorParam$labels, priorParam$labels))",
-                     "\n# Create a model that will evaluate to the log likelihood of the Gaussian prior
-# and provide suitable derivatives for the optimizer.
-gaussModel <- mxModel(model='gaussModel', priorParam, gaussM, gaussSD,
-    gaussFit, gaussGrad, gaussHess,
-    mxFitFunctionAlgebra('gaussFit', gradient='gaussGrad', hessian='gaussHess'))",
-                     "\ncontainer <- mxModel(model='container', itemModel, gaussModel,
-  mxFitFunctionMultigroup(groups=c('itemModel.fitfunction', 'gaussModel.fitfunction')))")
+                     "priorModel <- univariatePrior('logit-norm', priorLabels, priorMode)")
     } else { browser() }
   }
   if (length(priorInit)) {
+    priorInit <- c(priorInit,
+                   "container <- mxModel(model='container', itemModel, priorModel,
+  mxFitFunctionMultigroup(groups=c('itemModel.fitfunction', 'univariatePrior.fitfunction')))")
     priorInit <- paste(priorInit, collapse="\n")
   }
   
