@@ -1,38 +1,42 @@
 #' Adds exploratory factors to a single factor model
+#' 
+#' More than 3 factors is probably too slow and inaccurate.
 #'
 #' @param model a single factor (possibly multigroup) model
 #' @param toAdd the number of factors to add
 #' @param ...  Not used.  Forces remaining arguments to be specified by name.
+#' @param addUniquenessPrior whether to add a uniqueness prior to the model (default TRUE)
 #' 
 #' @export
-addExploratoryFactors <- function(model, toAdd, ...) {
+addExploratoryFactors <- function(model, toAdd, ..., addUniquenessPrior=TRUE) {
     garbageArguments <- list(...)
     if (length(garbageArguments) > 0) {
         stop("Values for the '...' argument are invalid; use named arguments")
     }
 
   ex <- model$expectation
-  if (is(ex, "MxExpectationBA81")) {
-    if (any(sapply(ex$ItemSpec, function(s) s$factors) != 1)) {
-      stop(paste("Model", model$name, "has items that load",
-                 "on more or less than 1 factor"))
-    }
+  if (!is(ex, "MxExpectationBA81")) {
+    stop(paste(model$name, "does not contain MxExpectationBA81"))
+  }
+
+  if (any(sapply(ex$ItemSpec, function(s) s$factors) != 1)) {
+    stop(paste("Model", model$name, "has items that load",
+               "on more or less than 1 factor"))
+  }
+
+  item <- model[[ex$item]]
+  if (is.null(item)) {
+    stop(paste("Cannot find item matrix in model", model$name))
+  }
+
+  if (toAdd > 0) {
     ex$ItemSpec <- lapply(ex$ItemSpec, rpf.modify, factors=1+toAdd)
-    item <- model[[ex$item]]
-    if (is.null(item)) {
-      stop(paste("Cannot find item matrix in model", model$name))
-    }
-    if (any(!is.na(item$lbound)) || any(!is.na(item$ubound))) {
-      stop(paste("EFA for item parameters with bounds are not implemented"))
-    }
     nitem <- mxMatrix(nrow=nrow(item)+toAdd, ncol=ncol(item),
                       name=item$name, dimnames=list(NULL, colnames(item)))
-    nitem$values[1,] <- item$values[1,]
-    nitem$values[(2+toAdd):nrow(nitem),] <- item$values[2:nrow(item),]
-    nitem$labels[1,] <- item$labels[1,]
-    nitem$labels[(2+toAdd):nrow(nitem),] <- item$labels[2:nrow(item),]
-    nitem$free[1,] <- item$free[1,]
-    nitem$free[(2+toAdd):nrow(nitem),] <- item$free[2:nrow(item),]
+    for (layer in c("values", "labels", "free", "lbound", "ubound")) { 
+      nitem[[layer]][1,] <- item[[layer]][1,]
+      nitem[[layer]][(2+toAdd):nrow(nitem),] <- item[[layer]][2:nrow(item),]
+    }
     rownames(nitem) <- c(rownames(item)[1],
                          paste0("explore", 1:toAdd),
                          rownames(item)[2:nrow(item)])
@@ -47,14 +51,17 @@ addExploratoryFactors <- function(model, toAdd, ...) {
       nitem$labels[1+fx, mask] <- paste0(lab, nitem$labels[1, mask])
     }
     
+    # Probably don't bother with more than 3 factors. Its too
+    # slow and inaccurate.
     ex$qpoints <- min(ex$qpoints,
                       switch(as.character(1+toAdd),
-                             '2'=31, '3'=11, '4'=7, 5))
+                             '2'=31, '3'=19, '4'=15, 9))
     ex$qwidth <- min(ex$qwidth,
-                      switch(as.character(1+toAdd),
-                             '2'=5, '3'=4, '4'=3, 2))
-
+                     switch(as.character(1+toAdd),
+                            '2'=5, '3'=4, '4'=3, 3))
+    
     model <- mxModel(model, ex, nitem)
+    item <- nitem
     
     mMat <- model[[ex$mean]]
     if (!is.null(mMat)) {
@@ -66,7 +73,7 @@ addExploratoryFactors <- function(model, toAdd, ...) {
       # preserve labels? TODO
       model <- mxModel(model, nmMat)
     }
-
+    
     cMat <- model[[ex$cov]]
     if (!is.null(cMat)) {
       ncMat <- mxMatrix(type="Symm", nrow=1+toAdd, ncol=1+toAdd,
@@ -84,12 +91,19 @@ addExploratoryFactors <- function(model, toAdd, ...) {
       model <- mxModel(model, ncMat)
     }
   }
- 
-  subs <- lapply(names(model$submodels),
-                 function(sname) {
-                   addExploratoryFactors(model[[sname]], toAdd)
-                 })
-  mxModel(model, subs)
+
+  if (!addUniquenessPrior) {
+    mxRename(model, paste0(model$name,1+toAdd))
+  } else {
+    name <- model$name
+    model <- mxRename(model, paste(name,"Item",sep=""))
+    up <- uniquenessPrior(model, 1+toAdd, name=paste(name,"UniquenessPrior",sep=""))
+    compute <- mxComputeDefault()
+    if (!is.null(model$compute)) compute <- model$compute
+    mxModel(model=paste0(name,1+toAdd), model, up,
+            mxFitFunctionMultigroup(c(model$name, up$name)),
+            compute)
+  }
 }
 
 #' Replicate a model for each group of data
