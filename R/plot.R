@@ -4,6 +4,8 @@
 #' @param itemName name of item to plot
 #' @param ...  Not used.  Forces remaining arguments to be specified by name.
 #' @param showSampleSize whether to show the sample size at the top of the plot
+#' @import ggplot2
+#' @importFrom reshape2 melt
 #' @export
 SitemPlot <- function(sout, itemName, ..., showSampleSize=TRUE) {
     garbageArguments <- list(...)
@@ -22,14 +24,15 @@ SitemPlot <- function(sout, itemName, ..., showSampleSize=TRUE) {
     both <- rbind(cbind(type="expected", melt(ex)),
                   cbind(type="observed", melt(obs)))
     both$outcome <- factor(both$outcome, colnames(obs))
-    plot <- ggplot(both, aes(x=sumScore, y=value)) + facet_wrap(~type) + ylim(0,1) +
+    plot <- ggplot(both, aes_string(x="sumScore", y="value")) + facet_wrap(~type) + ylim(0,1) +
         labs(y="probability", title=itemName)
     guide.style <- guide_legend(keywidth=.1, keyheight=.5, direction = "horizontal", title.position = "top",
                                 label.position="bottom", label.hjust = 0.5, label.vjust = .5,
                                 label.theme = element_text(angle = 90, size=8))
-    plot <- plot + geom_line(aes(color=outcome)) + guides(color = guide.style)
+    plot <- plot + geom_line(aes_string(color="outcome")) + guides(color = guide.style)
     if (showSampleSize) {
-        plot <- plot + geom_text(data=ss, aes(label=n, x=sscore), y = 1, size=2, angle=90)
+        plot <- plot + geom_text(data=ss, aes_string(label="n", x="sscore"),
+                                 y = 1, size=2, angle=90)
     }
     plot
 }
@@ -92,18 +95,18 @@ iccPlot <- function(grp, itemName, ..., width=3, dataBins=11, basis=c(1), factor
   both <- rbind(edf, icc)
   both$type <- mxFactor(both$type, levels=c('expected', 'observed'))
   
-  plot <- ggplot(both, aes(theta, value)) +
+  plot <- ggplot(both, aes_string("theta", "value")) +
      facet_wrap(~type) +
     ylim(0,1) + xlim(-width,width) + labs(y="probability") +
-    geom_text(data=bin.n, aes(label=n, x=theta), y = 1, size=1.5, angle=90)
+    geom_text(data=bin.n, aes_string(label="n", x="theta"), y = 1, size=1.5, angle=90)
   guide.style <- guide_legend(keywidth=.1, keyheight=.5, direction = "horizontal", title.position = "top",
                               label.position="bottom", label.hjust = 0.5, label.vjust = .5,
                               label.theme = element_text(angle = 90, size=8))
   if (length(labels) <= 12) {
-    plot <- plot + geom_line(aes(color=category, linetype=category)) +
+    plot <- plot + geom_line(aes_string(color="category", linetype="category")) +
       guides(color = guide.style, linetype = guide.style)
   } else {
-    plot <- plot + geom_line(aes(color=category)) + 
+    plot <- plot + geom_line(aes_string(color="category")) + 
       guides(color = guide.style)
   }
   plot + labs(title = itemName)
@@ -175,6 +178,6 @@ plotInformation <- function(grp, ..., width=3, showTotal=FALSE, basis=c(1)) {
   df <- as.data.frame(df)
   long<- melt(df, id.vars=c('score'), variable.name="item")
   long$item <- factor(long$item)
-  ggplot(long, aes(score, value, group=item)) +
-    geom_line(size=1.1,aes(color=item)) + ylab("information")
+  ggplot(long, aes_string("score", "value", group="item")) +
+    geom_line(size=1.1,aes_string(color="item")) + ylab("information")
 }

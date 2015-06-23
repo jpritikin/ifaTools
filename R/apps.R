@@ -1,6 +1,8 @@
 #' A Shiny app to experiment with item models
 #'
 #' @export
+#' @import shiny
+#' @import rpf
 #' @examples
 #' \dontrun{
 #' itemModelExplorer()  # will launch a browser in RStudio
@@ -12,6 +14,7 @@ itemModelExplorer <- function() {
 #' A Shiny app for building IFA models
 #'
 #' @export
+#' @import shiny
 #' @examples
 #' \dontrun{
 #' modelBuilder()  # will launch a browser in RStudio

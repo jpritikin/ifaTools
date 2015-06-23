@@ -18,7 +18,7 @@ univariatePrior(type, labels, mode, strength = NULL,
 \item{name}{the name of the mxModel returned}
 }
 \value{
-an mxModel that evaluates to the prior density
+an mxModel that evaluates to the prior density in deviance units
 }
 \description{
 The returned model evaluates to the fit of the priors in deviance

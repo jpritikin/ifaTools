@@ -3,7 +3,7 @@
 \alias{addExploratoryFactors}
 \title{Adds exploratory factors to a single factor model}
 \usage{
-addExploratoryFactors(model, toAdd, ...)
+addExploratoryFactors(model, toAdd, ..., addUniquenessPrior = TRUE)
 }
 \arguments{
 \item{model}{a single factor (possibly multigroup) model}
@@ -11,8 +11,10 @@ addExploratoryFactors(model, toAdd, ...)
 \item{toAdd}{the number of factors to add}
 
 \item{...}{Not used.  Forces remaining arguments to be specified by name.}
+
+\item{addUniquenessPrior}{whether to add a uniqueness prior to the model (default TRUE)}
 }
 \description{
-Adds exploratory factors to a single factor model
+More than 3 factors is probably too slow and inaccurate.
 }
 

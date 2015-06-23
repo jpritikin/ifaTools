@@ -3,10 +3,10 @@
 \alias{uniquenessPrior}
 \title{Uniqueness prior to assist in item factor analysis}
 \usage{
-uniquenessPrior(imat, numFactors, strength = 0.1, name = "uniquenessPrior")
+uniquenessPrior(model, numFactors, strength = 0.1, name = "uniquenessPrior")
 }
 \arguments{
-\item{imat}{an mxMatrix containing item parameters}
+\item{model}{an mxModel}
 
 \item{numFactors}{the number of factors.
 All items are assumed to have the same number of factors.}
@@ -16,7 +16,7 @@ All items are assumed to have the same number of factors.}
 \item{name}{the name of the mxModel that is returned}
 }
 \value{
-an mxModel that evaluates to the prior density
+an mxModel that evaluates to the prior density in deviance units
 }
 \description{
 To prevent Heywood cases, Bock, Gibbons, & Muraki (1988)
