@@ -146,7 +146,8 @@ replicateModelBy <- function(tmpl, fullData, mMat, covMat, ...,
   
   tmpl[[itemMatName]]$labels <- newLabels
   
-  refData <- subset(fullData, !split | population==refGroup, dataCol)
+  mask <- fullData[[splitCol]] == refGroup
+  refData <- subset(fullData, !split | mask, dataCol)
     if (compressData) {
 	    refData <- compressDataFrame(refData)
     }
@@ -167,7 +168,8 @@ replicateModelBy <- function(tmpl, fullData, mMat, covMat, ...,
   }
 
   for (grp in extraGroups) {
-	  gdata <- subset(fullData, population==grp, dataCol)
+    mask <- fullData[[splitCol]] == grp
+	  gdata <- subset(fullData, mask, dataCol)
 	  if (compressData) {
 		  gdata <- compressDataFrame(gdata)
 	  }
