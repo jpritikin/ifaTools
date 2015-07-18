@@ -372,14 +372,15 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
     writeFactorNames <- "rownames(startingValues)[1:numFactors] <- factors"
   }
   
-  numExtraCol <- 0
-  freqExpectationArgs <- ''
-  freqDataArgs <- ''
-  if (input$freqColumnName != '-') {
-    freqExpectationArgs <- paste0(", weightColumn='", input$freqColumnName,"'")
-    freqDataArgs <- paste0(", numObs=sum(data[['", input$freqColumnName,"']]), sort=FALSE")
-    numExtraCol <- 1
+  freqCol <- input$freqColumnName
+  maybeCompress <- list()
+  if (freqCol == '-') {
+    maybeCompress <- "data <- compressDataFrame(data)"
+    freqCol <- "freq"
   }
+  freqExpectationArgs <- paste0(", weightColumn='", freqCol,"'")
+  freqDataArgs <- paste0(", numObs=sum(data[['", freqCol,"']]), sort=FALSE")
+  numExtraCol <- 1
   
   getRefModels <- ""
   if (input$fitReferenceModels) {
@@ -469,6 +470,7 @@ plotInformation(m1Grp, width=5, basis=basis)
     "",
     "imat <- mxMatrix(name='item', values=startingValues, free=!is.na(startingValues))",
     itemInit,
+    maybeCompress,
     paste0("itemModel <- mxModel(model='itemModel', imat,
            mxData(observed=data, type='raw'", freqDataArgs, "),
            mxExpectationBA81(ItemSpec=spec", freqExpectationArgs, "),
