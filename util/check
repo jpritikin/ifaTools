@@ -12,8 +12,8 @@ fi
 ./util/build
 cd staging
 
-#cran=--as-cran
-cran=
+cran=--as-cran
+#cran=
 
 pkg=ifaTools
 
