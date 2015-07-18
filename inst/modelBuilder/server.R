@@ -393,23 +393,23 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
     computePlan <- paste0("computePlan <- mxComputeEM(", emArgs, ")")
   } else if (input$infoMethod == "Meat") {
     computePlan <- paste0("emStep <- mxComputeEM(", emArgs,")\n",
-                          "computePlan <- mxComputeSequence(list(emStep,
-         mxComputeOnce('fitfunction', 'information', 'meat'),
-         mxComputeHessianQuality(),
-         mxComputeStandardError()))")
+                          "computePlan <- mxComputeSequence(list(EM=emStep,
+         IM=mxComputeOnce('fitfunction', 'information', 'meat'),
+         HQ=mxComputeHessianQuality(),
+         SE=mxComputeStandardError()))")
   } else if (input$infoMethod == "Oakes") {
     emArgs <- paste0(emArgs, ",\n  information='oakes1999', infoArgs=list(fitfunction='fitfunction')")
     computePlan <- paste0("emStep <- mxComputeEM(", emArgs,")\n",
-                          "computePlan <- mxComputeSequence(list(emStep,
-         mxComputeHessianQuality(),
-         mxComputeStandardError()))")
+                          "computePlan <- mxComputeSequence(list(EM=emStep,
+         HQ=mxComputeHessianQuality(),
+         SE=mxComputeStandardError()))")
   } else if (input$infoMethod == "Agile SEM") {
     emArgs <- paste0(emArgs, ",\n  information='mr1991',
                      infoArgs=list(fitfunction='fitfunction', semMethod='agile')")
     computePlan <- paste0("emStep <- mxComputeEM(", emArgs,")\n",
-                          "computePlan <- mxComputeSequence(list(emStep,
-         mxComputeHessianQuality(),
-         mxComputeStandardError()))")
+                          "computePlan <- mxComputeSequence(list(SE=emStep,
+         HQ=mxComputeHessianQuality(),
+         SE=mxComputeStandardError()))")
   } else {
     browser()
   }
