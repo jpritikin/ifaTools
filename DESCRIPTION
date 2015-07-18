@@ -1,11 +1,9 @@
 Package: ifaTools
-Type: Package
+Date: 2015-07-18
 Title: Toolkit for Item Factor Analysis with OpenMx
-Version: 0.01
-Date: 2014-09-03
-Authors@R: c(person("Joshua",family="Pritikin", email="jpritikin@pobox.com",
-    role=c('cre','aut')))
-Maintainer: Joshua Pritikin <jpritikin@pobox.com>
+Authors@R: c(person(c("Joshua","N."), family="Pritikin",
+    email="jpritikin@pobox.com", role=c('cre','aut')))
+Version: 0.02
 Description: Tools, tutorials, and demos of Item Factor Analysis using OpenMx.
 LazyData: yes
 LazyDataCompression: bzip2
@@ -19,6 +17,6 @@ Depends:
     ggplot2,
     reshape2,
     rpf (>= 0.40),
-    OpenMx (>= 2.2),
+    OpenMx (>= 2.2.6),
     R (>= 2.14.0)
 URL: https://github.com/jpritikin/ifaTools
