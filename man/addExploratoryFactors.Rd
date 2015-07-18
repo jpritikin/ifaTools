@@ -15,6 +15,6 @@ addExploratoryFactors(model, toAdd, ..., addUniquenessPrior = TRUE)
 \item{addUniquenessPrior}{whether to add a uniqueness prior to the model (default TRUE)}
 }
 \description{
-More than 3 factors is probably too slow and inaccurate.
+Adds exploratory factors to a single factor model
 }
 

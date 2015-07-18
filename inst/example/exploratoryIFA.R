@@ -86,7 +86,7 @@ mkTemplate <- function(seed) {
   data <- compressDataFrame(data)
   
   computePlan <- mxComputeSequence(list(
-    mxComputeEM('modelItem.expectation', 'scores', mxComputeNewtonRaphson(),
+    mxComputeEM('model.expectation', 'scores', mxComputeNewtonRaphson(),
                 verbose=0, information='oakes1999', #tolerance=1e-8,
                 infoArgs=list(fitfunction='fitfunction')),
     mxComputeHessianQuality(),
@@ -154,7 +154,8 @@ plotTwoFactors <- function(slope) {
   lvm[lvm<0] <- 0
   df <- as.data.frame(lvm[,1:2])
   df$name <- rownames(df)
-  pl <- ggplot(df, aes(x=a, y=explore1, label=name)) + geom_text()
+  pl <- ggplot(df, aes_string(x=rownames(slope)[1],
+                              y=rownames(slope)[2], label="name")) + geom_text()
   pm <- promax(lvm[,1:2])$rotmat
   for (dx in 1:ncol(pm)) {
     d1 <- .5 * pm[,dx] / sqrt(sum(pm[,dx]^2))
@@ -171,7 +172,7 @@ m1 <- mxRun(m1, suppressWarnings = TRUE)
 m2 <- addExploratoryFactors(template, 1)
 m2 <- mxRun(m2, suppressWarnings = TRUE)
 mxCompare(m2,m1)
-plotTwoFactors(m2$modelItem$item$values[1:2,])
+plotTwoFactors(m2$model$item$values[1:2,])
 
 template <- mkTemplate(2)  # 2 factors
 
