@@ -34,7 +34,8 @@ extractFromContainer <- function(container, expectationClass) {
 #' @param toAdd the number of factors to add
 #' @param ...  Not used.  Forces remaining arguments to be specified by name.
 #' @param addUniquenessPrior whether to add a uniqueness prior to the model (default TRUE)
-#' 
+#'
+#' @importFrom methods is
 #' @export
 addExploratoryFactors <- function(model, toAdd, ..., addUniquenessPrior=TRUE) {
     garbageArguments <- list(...)

@@ -24,6 +24,7 @@ calcBetaParam <- function(mode, strength) {
 #' an mxModel that evaluates to the prior density in deviance units
 #' @export
 #' @import OpenMx
+#' @importFrom stats plogis
 univariatePrior <- function(type, labels, mode, strength=NULL, name="univariatePrior") {
 	priorParam <- mxMatrix(name='priorParam', nrow=1, ncol=length(labels),
 			       free=TRUE, labels=labels)
