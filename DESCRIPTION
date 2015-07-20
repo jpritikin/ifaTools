@@ -1,13 +1,15 @@
 Package: ifaTools
-Date: 2015-07-19
+Date: 2015-07-20
 Title: Toolkit for Item Factor Analysis with OpenMx
 Authors@R: c(person(c("Joshua","N."), family="Pritikin",
     email="jpritikin@pobox.com", role=c('cre','aut')))
-Version: 0.4
+Version: 0.5
 Description: Tools, tutorials, and demos of Item Factor Analysis using OpenMx.
 LazyData: yes
 LazyDataCompression: bzip2
 License: AGPL (>= 3)
+Imports:
+    methods
 Suggests:
     testthat,
     roxygen2,

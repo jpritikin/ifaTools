@@ -36,7 +36,6 @@ extractFromContainer <- function(container, expectationClass) {
 #' @param addUniquenessPrior whether to add a uniqueness prior to the model (default TRUE)
 #'
 #' @importFrom methods is
-#' @import methods
 #' @export
 addExploratoryFactors <- function(model, toAdd, ..., addUniquenessPrior=TRUE) {
     garbageArguments <- list(...)
