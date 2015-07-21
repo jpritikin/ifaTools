@@ -25,6 +25,13 @@ calcBetaParam <- function(mode, strength) {
 #' @export
 #' @import OpenMx
 #' @importFrom stats plogis
+#' @examples
+#' model <- univariatePrior("logit-norm", "x1", -1)
+#' model$priorParam$values[1,1] <- -.6
+#' model <- mxRun(model)
+#' model$output$fit
+#' model$output$gradient
+#' model$output$hessian
 univariatePrior <- function(type, labels, mode, strength=NULL, name="univariatePrior") {
 	priorParam <- mxMatrix(name='priorParam', nrow=1, ncol=length(labels),
 			       free=TRUE, labels=labels)
@@ -112,6 +119,28 @@ univariatePrior <- function(type, labels, mode, strength=NULL, name="univariateP
 #' @references
 #' Bock, R. D., Gibbons, R., & Muraki, E. (1988). Full-information item factor analysis.
 #' \emph{Applied Psychological Measurement, 12}(3), 261-280.
+#' @examples
+#' numItems <- 6
+#' spec <- list()
+#' spec[1:numItems] <- rpf.drm(factors=2)
+#' names(spec) <- paste0("i", 1:numItems)
+#' item <- mxMatrix(name="item", free=TRUE,
+#'                  values=mxSimplify2Array(lapply(spec, rpf.rparam)))
+#' item$labels[1:2,] <- paste0('p',1:(numItems * 2))
+#' data <- rpf.sample(500, spec, item$values)
+#' m1 <- mxModel(model="m1", item,
+#'               mxData(observed=data, type="raw"),
+#'               mxExpectationBA81(spec),
+#'               mxFitFunctionML())
+#' up <- uniquenessPrior(m1, 2)
+#' container <- mxModel("container", m1, up,
+#'                      mxFitFunctionMultigroup(c("m1", "uniquenessPrior")),
+#'                      mxComputeSequence(list(
+#'                        mxComputeOnce('fitfunction', c('fit','gradient')),
+#'                        mxComputeReportDeriv())))
+#' container <- mxRun(container)
+#' container$output$fit
+#' container$output$gradient
 uniquenessPrior <- function(model, numFactors, strength=0.1,
                             name="uniquenessPrior") {
   ex <- model$expectation
@@ -145,7 +174,7 @@ uniquenessPrior <- function(model, numFactors, strength=0.1,
 	mask <- matrix(FALSE, nrow=nrow(imat), ncol=ncol(imat))
 	mask[1:numFactors,] <- imat$free[1:numFactors,]
 	fv <- unique(imat$labels[mask])
-	if (any(is.na(fv))) stop("All free parameters must be labelled")
+	if (any(is.na(fv))) stop("All free slope parameters must be labelled")
 	if (!length(fv)) stop("No free parameters")
 	
 	fvMap <- mxMatrix(values=0, nrow=numFactors * numItems, ncol=length(fv), name="fvMap")
