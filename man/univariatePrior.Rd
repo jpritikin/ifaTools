@@ -31,4 +31,12 @@ lower asymptote parameter of the 3PL model. Both of these priors
 assume that the parameter is in logit units. The 'lnorm' prior
 can be used for slope parameters.
 }
+\examples{
+model <- univariatePrior("logit-norm", "x1", -1)
+model$priorParam$values[1,1] <- -.6
+model <- mxRun(model)
+model$output$fit
+model$output$gradient
+model$output$hessian
+}
 
