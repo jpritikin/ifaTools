@@ -219,16 +219,13 @@ replicateModelBy <- function(tmpl, fullData, mMat, covMat, ...,
   }
   
   enames <- c(refGroup, extraGroups)
-  mstep <- list(mxComputeNewtonRaphson(freeSet=paste(enames,'item',sep='.')))
-  if (split) {
-    lset <- apply(expand.grid(extraGroups, c("mean","cov")), 1, paste, collapse='.')
-    mstep <- c(mstep,
-               mxComputeGradientDescent(fitfunction='latentFit.fitfunction',
-                                        freeSet=lset))
-  }
+  mstep <- mxComputeNewtonRaphson()
   container <- mxModel(container,
-                       mxFitFunctionMultigroup(enames),
-                       mxComputeEM(paste(enames, 'expectation', sep="."), 'scores',
-                                   mxComputeSequence(mstep)))
+                       mxFitFunctionMultigroup(c(enames, 'latentFit')),
+		       mxComputeSequence(list(
+			   mxComputeEM(paste(enames, 'expectation', sep="."), 'scores',
+				       mstep, information="oakes1999", infoArgs=list(fitfunction='fitfunction')),
+			   mxComputeStandardError(),
+			   mxComputeHessianQuality())))
   container
 }
