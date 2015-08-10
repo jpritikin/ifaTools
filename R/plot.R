@@ -120,6 +120,8 @@ iccPlot <- function(grp, itemName, ..., width=3, dataBins=11, basis=c(1), factor
 #' @param grp an IFA group
 #' @param ...  Not used.  Forces remaining arguments to be specified by name.
 #' @param factor which factor to plot (defaults to 1)
+#' @return A data.frame of the raw data backing the plot. Item outcomes
+#' without any observations are omitted.
 #' @export
 itemResponseMap <- function(grp, ..., factor=1) {
     garbageArguments <- list(...)
@@ -140,7 +142,7 @@ itemResponseMap <- function(grp, ..., factor=1) {
                                          score=mean(grp$score[mask, factor], na.rm=TRUE)))
     }
   }
-  result
+  subset(result, is.finite(score))
 }
 
 #' Plot item information in the latent distribution
