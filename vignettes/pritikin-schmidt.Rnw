@@ -146,6 +146,9 @@ it can be helpful to place yourself in the position
 of the optimization algorithm.
 Enter the following commands to launch the model explorer tool
 and browse to the output web server address.
+It is possible to do this without \pkg{RStudio},
+but \pkg{RStudio} makes everything easier so
+we recommend using \pkg{RStudio}.
 Note that the port number (\verb\3726\ printed below) may be different on your computer.
 
 \begin{wrapfigure}{r}{0.5\textwidth}
@@ -188,7 +191,10 @@ The computer will do it for you.
 
 Enter the following commands to launch the model builder tool
 and browse to the output web server address.
-As before, note that the port number (\verb\3726\ printed below) may be different on your computer.
+As before, it is possible to do this without \pkg{RStudio},
+but \pkg{RStudio} makes everything easier so
+we recommend using \pkg{RStudio}.
+Note that the port number (\verb\3726\ printed below) may be different on your computer.
 
 \begin{example}
 library(ifaTools)
