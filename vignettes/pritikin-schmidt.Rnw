@@ -387,7 +387,7 @@ you could use ``latent trait,'' but this name only works well for a single facto
 You really should make an effort to think of descriptive names before you
 start using trait1, trait2, etc.
 If you are not sure how many factors to use then use 1 for now.
-We will revisit this question in Section~\ref{section:ifa}.
+We will revisit this question later.
 
 \begin{wrapfigure}{r}{0.5\textwidth}
 \includegraphics[width=0.48\textwidth]{ss08}
@@ -1023,7 +1023,7 @@ The source code is available for
 everybody to view, modify, and use.
 If you find this software useful, we hope you will cite us in your publications.
 
-\section{Polytomous data}\label{sec:polytomous}
+\section{Polytomous data}
 
 \begin{wrapfigure}{r}{0.5\textwidth}
 \includegraphics[width=0.48\textwidth]{ss11}
@@ -1363,7 +1363,7 @@ rpf.1dim.fit(group=m1Grp, margin=1)  # people
 rpf.1dim.fit(group=m1Grp, margin=2)  # items
 \end{verbatim}
 
-\section{Item factor analysis}\label{section:ifa}
+\section{Item factor analysis}
 
 \begin{figure}
 <<fig.height=2>>=
