@@ -768,7 +768,7 @@ we obtain some diagnostics upon knitting the Rmarkdown to HTML.
 Given that the starting values are random,
 the initial fit and trajectory (lines~\ref{e2:traj1}--\ref{e2:traj2})
 should differ when you try optimizing the same model
-but the optimum (line~\ref{e2:fit}) should be exactly the same.
+but the optimum (line~\ref{e2:fit}) should be the same to within $10^{-2}$.
 If you do not reach the same solution,
 try again with different starting values.
 The function \verb\as.IFAgroup\ (line~\ref{e1:ifagroup}) is a bridge
@@ -855,14 +855,14 @@ ct <- ChenThissen1997(m1Grp)
 print(xtable(ct$pval, paste('Log p-value of local dependence between item pairs.'), "tab:ld", digits=1))
 @ 
 
-A test of local dependence is important to examine \citep{yen1993}.
+A test of local dependence is important to examine
+as it is an assumption of IFA \citep{yen1993}.
 Table~\ref{tab:ld} exhibits the log $p$-value
-of the null hypothesis that there is no local dependence between item pairs,
-as is an assumption of IFA.
+of the null hypothesis that there is no local dependence between item pairs.
 Since $\log(.01) \approx -4.6$,
 any absolute magnitude greater than 4.6 can be interpreted as
 rejecting the null hypothesis at the .01 level.
-The sign of each $p$-value is determined by ordinal gamma,
+The sign of each $p$-value is determined by \emph{ordinal gamma},
 a measure of association \citep{agresti1990}.
 Positive numbers indicate more correlation than expected.
 These are cause for concern and suggest local dependence \citet{chen1997}.
