@@ -749,28 +749,7 @@ we obtain some diagnostics upon knitting the Rmarkdown to HTML.
 [0] ComputeEM: Oakes1999 method=simple perturbation=0.001000
 [0] ComputeEM: deriv of gradient for 0
 [0] ComputeEM: deriv of gradient for 1
-[0] ComputeEM: deriv of gradient for 2
-[0] ComputeEM: deriv of gradient for 3
-[0] ComputeEM: deriv of gradient for 4
-[0] ComputeEM: deriv of gradient for 5
-[0] ComputeEM: deriv of gradient for 6
-[0] ComputeEM: deriv of gradient for 7
-[0] ComputeEM: deriv of gradient for 8
-[0] ComputeEM: deriv of gradient for 9
-[0] ComputeEM: deriv of gradient for 10
-[0] ComputeEM: deriv of gradient for 11
-[0] ComputeEM: deriv of gradient for 12
-[0] ComputeEM: deriv of gradient for 13
-[0] ComputeEM: deriv of gradient for 14
-[0] ComputeEM: deriv of gradient for 15
-[0] ComputeEM: deriv of gradient for 16
-[0] ComputeEM: deriv of gradient for 17
-[0] ComputeEM: deriv of gradient for 18
-[0] ComputeEM: deriv of gradient for 19
-[0] ComputeEM: deriv of gradient for 20
-[0] ComputeEM: deriv of gradient for 21
-[0] ComputeEM: deriv of gradient for 22
-[0] ComputeEM: deriv of gradient for 23
+[0] ...
 [0] ComputeEM: deriv of gradient for 24
 \end{lstlisting}
 
@@ -1027,17 +1006,6 @@ More fit statistics are available if we provide
 the saturated and independence reference models.
 Reference models will be requested in our next example.
 
-\begin{lstlisting}[name=cont]
-```{r,results='asis'}
-citation('OpenMx')
-```
-\end{lstlisting}
-
-\pkg{OpenMx}, \pkg{rpf}, and \pkg{ifaTools} are free and open-source software.
-The source code is available for
-everybody to view, modify, and use.
-If you find this software useful, we hope you will cite us in your publications.
-
 \section{Polytomous data}
 
 \begin{wrapfigure}{r}{0.5\textwidth}
@@ -1286,27 +1254,8 @@ The boilerplate renders as,
 factors (\Sexpr{factors}), $-2$LL=$\Sexpr{m1Fit$output$fit}$.
 The condition number of the information
 matrix was \Sexpr{m1Fit$output$conditionNumber}.''
-
-\begin{lstlisting}[name=cont]
-```{r,fig.height=2}
-got <- sumScoreEAPTest(m1Grp)
-df <- data.frame(score=as.numeric(names(got$observed)),
-            expected=got$expected, observed=got$observed)
-df <- melt(df, id='score', variable.name='source', value.name='n')
-ggplot(df, aes(x=score, y=n, color=source)) + geom_line()
-```
-
-```{r,results='asis'}
-ct <- ChenThissen1997(m1Grp)
-print(xtable(ct$pval, paste('Log p-value of local dependence between item pairs.')))
-```
-
-```{r,results='asis'}
-sfit <- SitemFit(m1Grp)
-tbl <- t(sapply(sfit, function(r) c(n=r$n, df=r$df, stat=r$statistic, pval=r$pval)))
-print(xtable(tbl, paste0('Sum-score item-wise fit')))
-```
-\end{lstlisting}
+Since we have already seen much of the code to generate model diagnostics,
+we omit it here.
 
 <<results='asis'>>=
 sfit <- SitemFit(m1Grp)
@@ -1315,23 +1264,6 @@ print(xtable(tbl, paste0('Sum-score item-wise fit'), 'tab:e3-sitemfit'))
 @ 
 
 \begin{lstlisting}[name=cont]
-```{r,fig.height=2}
-map1 <- itemResponseMap(m1Grp, factor=1)
-ggplot(map1, aes(x=score, y=item, label=outcome)) +
-  geom_text(size=4, position=position_jitter(h=.25))
-```
-
-```{r,fig.height=3}
-pl <- lapply(names(sfit), function(item) { SitemPlot(sfit, item) })
-for (px in 1:length(pl)) {
-  print(pl[[px]])
-}
-
-basis <- rep(0, length(factors))
-basis[1] <- 1
-plotInformation(m1Grp, width=5, basis=basis)
-```
-
 ```{r}
 summary(m1Fit, refModels=mxRefModels(m1Fit, run = TRUE))  ## \label{e3:refModels}
 ```
@@ -1364,12 +1296,6 @@ However, be forewarned that as the multinomial table becomes more sparse,
 these indices become inaccurate.
 For sparse data, a more accurate assessment of model fit is available
 using other methods \citep{bartholomew1999,cai2013b}.
-
-\begin{lstlisting}[name=cont]
-```{r,results='asis'}
-citation('OpenMx')
-```
-\end{lstlisting}
 
 \section{Rasch diagnostics}
 
