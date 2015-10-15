@@ -771,6 +771,12 @@ should differ when you try optimizing the same model
 but the optimum (line~\ref{e2:fit}) should be the same to within $10^{-2}$.
 If you do not reach the same solution,
 try again with different starting values.
+At the time of writing, optimization is faster on multicore CPUs
+with the OpenMP shared memory multiprocessing extension enabled
+on non-Microsoft Windows operating systems.
+As soon as Windows supports the OpenMP then we expect performance
+differences between operating systems to narrow.
+
 The function \verb\as.IFAgroup\ (line~\ref{e1:ifagroup}) is a bridge
 between \pkg{OpenMx} and \pkg{rpf}.
 \pkg{rpf} is an acronym for response probability function
