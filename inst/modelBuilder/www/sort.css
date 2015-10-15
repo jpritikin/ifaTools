@@ -2,3 +2,5 @@
 li.stab { margin: 0 5px 5px 5px; padding: 5px; font-size: 1.2em; height: 1.5em; cursor:move;}
 html>body li.stab { height: .5em; line-height: .5em; }
 .ui-state-highlight { list-style-type: none; height: .5em; line-height: .5em; }
+ul.ui-sortable li.stab span.label { background-color: #777; }
+
