@@ -540,13 +540,12 @@ In a simulation study included with \pkg{OpenMx},
 the Oakes method \citep{oakes1999} exhibited accuracy comparable
 to central difference with Richardson extrapolation
 and time linear in the number of parameters.
-Click the \verb\Download\ button, save the \verb\rmarkdown\ code,
-open the file in \pkg{RStudio},
-and follow the instructions to render it into a web page.
-The details of the generated report are likely to evolve.
-There may be some differences between the generated code
-in this article and the most recent version,
-but there should be a correspondence between the basic elements.
+Click the \verb\Download\ button and save the \verb\rmarkdown\ code.
+The \verb\rmarkdown\ file and your data need to be in the same directory.
+Either move the \verb\rmarkdown\ file to your data directory,
+or alternately, you can specify a full path in the read.csv
+statement (lines \ref{e1:load1}--\ref{e1:load2}).
+Open the file in \pkg{RStudio} and click the \verb\Knit HTML\ button.
 
 \begin{lstlisting}[name=cont]
 ---
@@ -642,7 +641,7 @@ suppressPackageStartupMessages(library(ifaTools))
 library(xtable)
 
 # Adjust the path in the next statement to load your data
-data <- read.csv(file='~/ifa/mbManual/g341-19.csv',header=FALSE,sep='',quote="",stringsAsFactors=FALSE,check.names=FALSE)
+data <- read.csv(file='g341-19.csv',header=FALSE,sep='',quote="",stringsAsFactors=FALSE,check.names=FALSE)
 colnames(data) <- mxMakeNames(colnames(data), unique=TRUE)
 
 factors <- "ability"
@@ -706,6 +705,10 @@ m1Fit <- mxRun(container, silent=TRUE)
 m1Grp <- as.IFAgroup(m1Fit$itemModel, minItemsPerScore=1L)
 @ 
 
+The details of the generated report are likely to evolve.
+There may be some differences between the generated code
+in this article and the most recent version,
+but there should be a correspondence between the basic elements.
 The first chunk of code builds the model and optimizes it.
 We adjust the output of long lines and numbers (line~\ref{e1:options})
 and load packages (lines~\ref{e1:pkg1}--\ref{e1:pkg2}).
@@ -1124,6 +1127,11 @@ Figure~\ref{fig:preschool-part3} exhibits the final parameter settings.
 Click \verb\Analysis\ on the top bar.
 Ensure that \verb\Fit reference models\ is selected,
 and download the analysis script.
+The \verb\rmarkdown\ file and your data need to be in the same directory.
+Either move the \verb\rmarkdown\ file to your data directory,
+or alternately, you can specify a full path in the read.csv
+statement (line \ref{e3:load}).
+Open the file in \pkg{RStudio} and click the \verb\Knit HTML\ button.
 Although this is a simple model,
 it can take almost 100 E-M cycles to converge.
 Therefore, we omit reproduction of the diagnostic output issued during model fit.
@@ -1202,7 +1210,7 @@ library(xtable)
 options(xtable.type='html')
 
 # Adjust the path in the next statement to load your data
-data <- read.csv(file='preschool.csv',stringsAsFactors=FALSE,check.names=FALSE)
+data <- read.csv(file='preschool.csv',stringsAsFactors=FALSE,check.names=FALSE) ## \label{e3:load}
 colnames(data) <- mxMakeNames(colnames(data), unique=TRUE)
 data[['freq']] <- as.numeric(data[['freq']]) ## \label{e3:freq}
 
