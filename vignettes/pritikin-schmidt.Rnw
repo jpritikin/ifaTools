@@ -116,7 +116,7 @@ pl <- ggplot(as.data.frame(grid), aes(skill, correct)) +
     labs(y="% correct")
 print(pl)
 @ 
-\caption{How ordinal data is converted into continuous data conditional on examinee skill.}
+\caption{How dichotomous data is converted into continuous data conditional on examinee skill.}
 \label{fig:item-model}
 \end{wrapfigure}
 
