@@ -8,6 +8,7 @@ Description: Tools, tutorials, and demos of Item Factor Analysis using OpenMx.
 LazyData: yes
 LazyDataCompression: bzip2
 License: AGPL (>= 3)
+VignetteBuilder: knitr
 Imports:
     methods
 Suggests:

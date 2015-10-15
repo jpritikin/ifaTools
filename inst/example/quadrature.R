@@ -1,8 +1,11 @@
+# This script is used to generate data for a plot
+# in the vignette R Journal article.
+
 library(ifaTools)
 library(ggplot2)
 library(plyr)
 
-if (0) {
+if (1) {
   control <- expand.grid(
     # conditions
     qpoints = seq(3,27,1), qwidth = seq(3,5,1), seed=1:5, modelFactors = 1:2,
@@ -111,7 +114,7 @@ for (cx in head(which(is.na(control$fit)),1):nrow(control)) {
   
 #  print(control[cx,])
   
-  if (1) {
+  if (0) {
     gcontrol <- subset(control, !is.na(fit))
     gcontrol <- ddply(gcontrol, ~qpoints + qwidth + modelFactors, summarize, pnorm=mean(pnorm))
     gcontrol <- ddply(gcontrol, ~modelFactors, transform, pnorm=log(pnorm))
@@ -125,6 +128,6 @@ for (cx in head(which(is.na(control$fit)),1):nrow(control)) {
   }  
 }
 
-if (0) {
-  save(control, file="~/ifa/mbManual/quad.rda")
+if (1) {
+  save(control, file="quad.rda")
 }

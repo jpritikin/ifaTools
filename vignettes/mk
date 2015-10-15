@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -o errexit
+set -o nounset
+set -o noclobber
+
+name=pritikin-schmidt
+
+# Re-run 3 times to get bibliographic changes through
+
+if [ ! -e quad.rda ]; then
+    R --vanilla -f ../inst/example/quadrature.R
+fi
+
+Rscript -e "library(knitr); knit('$name.Rnw')"
+if grep --fixed-strings '\color{errorcolor}' "$name.tex"; then
+  exit 1
+fi
+[ -d gen ] || mkdir gen
+pdflatex RJwrapper
+bibtex RJwrapper

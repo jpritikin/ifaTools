@@ -1,0 +1,1563 @@
+% !TeX root = RJwrapper.tex
+
+\title{Model Builder for Item Factor Analysis with \pkg{OpenMx}}
+\author{by Joshua N.~Pritikin and Karen M.~Schmidt}
+\maketitle
+
+%% an abstract and keywords
+\abstract{
+We introduce a shiny web application to facilitate
+the construction of Item Factor Analysis (a.k.a. Item Response Theory) models
+using the \pkg{OpenMx} package.
+The web application assists with importing data,
+outcome recoding, and model specification.
+However, the app does not conduct any analysis.
+Instead, rmarkdown output is generated that serves dual purposes:
+to analyze a data set and demonstrate good programming practices.
+The app can be used as a teaching tool or as a starting
+point for custom analysis scripts.
+}
+
+<<echo=FALSE>>=
+require("knitr")
+opts_chunk$set(echo=FALSE, cache=FALSE, highlight=FALSE,
+               size="footnotesize", background='#ffffff')
+suppressPackageStartupMessages(library(OpenMx))
+suppressPackageStartupMessages(library(rpf))
+suppressPackageStartupMessages(library(ifaTools))
+suppressPackageStartupMessages(library(reshape2))
+suppressPackageStartupMessages(library(grid))
+suppressPackageStartupMessages(library(gridExtra))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(plyr))
+@ 
+
+\pkg{OpenMx}, a modular package originally designed for
+structural equation modeling \citep{openmx2}, recently gained the
+ability to handle Item Factor Analysis (a.k.a. Item Response Theory, Modern Test Theory)
+models \citep{pritikin2014a}.  Although a goal of \pkg{OpenMx} is to
+cater to the statistical power user and facilitate analyses that are
+difficult to conduct in other software, the development team is always on the lookout for ways
+to ease the learning curve for novice users as well.
+Here we introduce a new \pkg{shiny} \citep{shiny:webapp} web application
+to generate \pkg{OpenMx} code in \pkg{rmarkdown} format \citep{rmarkdown}.
+We believe this code generator substantially lowers the barrier
+to entry for novice users of Item Factor Analysis
+and encourages a culture of literate programming \citep{knuth1984}
+and reproducible science \citep{peng2011,nosek2015}.
+The generated code can be customized at many levels.
+This flexibility enables the production of custom analyses and
+reports as users grow more sophisticated in their modeling
+expectations.
+
+\section{The statistical model}
+
+Item analysis is concerned with items that are scored correct/incorrect
+or on an ordinal scale.
+Many psychological surveys use an ordinal scale.
+For example, participants may be asked to respond to an
+item like, ``I feel I am in charge of the situation in which I live.''
+on a 5-point Likert scale from \emph{agree} to \emph{disagree}.
+Whether dichotomous or ordinal,
+the conditional likelihood of response $x_{ij}$ to item $j$ from person $i$
+with item parameters $\xi_j$ and latent ability $\theta_i$ is
+%
+\begin{align}
+L(x_i|\xi,\theta_i) = \prod_j \mathrm{Pr}(\mathrm{pick}=x_{ij} | \xi_j,\theta_i). \label{eqn:response}
+\end{align}
+%
+One implication of Equation~\ref{eqn:response} is that items are
+assumed to be conditionally independent given the latent ability $\theta$.
+That is, the outcome of one item does not have any influence on
+another item after controlling for $\xi$ and $\theta_i$.
+The unconditional likelihood is obtained by integrating over
+the latent distribution $\theta_i$,
+%
+\begin{align}
+L(x_i|\xi) = \int L(x_i|\xi, \theta_i) L(\theta_i) \mathrm{d}\theta_i.
+\end{align}
+%
+With an assumption that examinees are independently and identically distributed,
+we can sum the individual log likelihoods,
+%
+\begin{align}
+\mathcal{L}=\sum_i \log L(x_i | \xi). \label{eqn:ifa-model}
+\end{align}
+%
+Optimization consists of finding the $\xi$ that maximizes this function \citep{bock1981}.
+
+\section{Item models}
+
+\begin{wrapfigure}[10]{r}{0.5\textwidth}
+\vskip-1.3cm     % use space from the section header
+<<fig.height=4>>=
+skill.n <- 500
+width <- 5
+skill <- sort(runif(skill.n,-width,width))
+item.p <- .4
+empirical.bins <- 14
+correct <- rep(TRUE, length(skill))
+skill.o <- skill + rnorm(length(skill), sd=1)
+correct[order(skill.o)[seq(1,(1-item.p) * length(skill))]] <- FALSE
+grid <- list()
+grid$correct <- correct
+grid$skill <- skill
+breaks <- seq(min(skill)-.001, max(skill)+.001, length.out=empirical.bins)
+bin <- cut(skill, breaks, labels=FALSE)
+bin.correct <- data.frame(at=breaks[-1] - diff(breaks)/2,
+                          pct=vapply(1:max(bin), function(l) sum(correct[bin==l])/sum(bin==l), 0))
+bin.correct$pct <- sprintf("%.0f", 100 * bin.correct$pct)
+pl <- ggplot(as.data.frame(grid), aes(skill, correct)) +
+    geom_point(position=position_jitter(0,.05), size=1) +
+    geom_segment(data=data.frame(thresh=breaks),
+                 aes(x=thresh, xend=thresh, y=TRUE, yend=FALSE), color="red") +
+    geom_text(data=bin.correct, aes(x=at,y=1.5,label=pct), color="blue",
+              angle=90) +
+    labs(y="% correct")
+print(pl)
+@ 
+\caption{How ordinal data is converted into continuous data conditional on examinee skill.}
+\label{fig:item-model}
+\end{wrapfigure}
+
+Modern test theory employs item models,
+$\mathrm{Pr}(\mathrm{pick}=x_{ij} | \xi_j,\theta_i)$ (from Equation~\ref{eqn:response}).
+To better appreciate how modern test theory works,
+it is helpful to develop an intuitive understanding
+of item models.
+The essential idea is the conversion of ordinal (or dichotomous) data
+into continuous data conditional an examinee skill.
+In Figure~\ref{fig:item-model},
+the black dots represent the dichotomous data.
+Here we assume that examinee skill is known so that we can plot the black dots at
+the appropriate place on the x~axis.
+The next step is to partition the x~axis into equal interval bins.
+The proportion of examinees who responded correctly
+is displayed in blue in the middle of each bin.
+These blue numbers are our new continuous data, conditional on examinee skill.
+While we assumed that examinee skill was known,
+this assumption is actually unnecessary.
+The optimization algorithm can make a rough estimate
+of examinee skill, proceed to improve the model,
+and repeat this process until change is less than some epsilon.
+
+To further inform your intuition about item models,
+it can be helpful to place yourself in the position
+of the optimization algorithm.
+Enter the following commands to launch the model explorer tool
+and browse to the output web server address.
+Note that the port number (\verb\3726\ printed below) may be different on your computer.
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[width=0.48\textwidth]{ss14}
+\caption{Item model explorer.}
+\label{fig:ime}
+\end{wrapfigure}
+
+\begin{example}
+library(ifaTools)
+itemModelExplorer()
+
+Listening on http://127.0.0.1:3726
+\end{example}
+
+Your browser should show a screen similar to Figure~\ref{fig:ime}.
+Try experimenting with all the controls.
+The \verb\Show/Edit parameters\ checkbox has a special didactic purpose.
+Open two copies of the item model explorer.
+On one copy, un-check the \verb\Show/Edit parameters\ checkbox
+to hide the parameters and click the \verb\Draw new parameters\ button.
+On the second copy of the item model explorer,
+adjust the item model parameters to try to match the
+plot produced on the first item model explorer.
+You can check your answers by checking
+the \verb\Show/Edit parameters\ checkbox.
+When you play this game,
+you are doing part of what the optimization algorithm
+does when it fits models to data.
+Note that there is no need to practice this skill.
+The computer will do it for you.
+
+\section{The model builder}
+
+\begin{figure}[h]
+\includegraphics[width=.95\textwidth]{ss01}
+\caption{Initial screen shown after start up.}
+\label{fig:start-screen}
+\end{figure}
+
+Enter the following commands to launch the model builder tool
+and browse to the output web server address.
+As before, note that the port number (\verb\3726\ printed below) may be different on your computer.
+
+\begin{example}
+library(ifaTools)
+modelBuilder()
+
+Listening on http://127.0.0.1:3726
+\end{example}
+
+Your browser should show a screen similar to Figure~\ref{fig:start-screen}.
+Take care not to hit the \verb\Reload\ button because that will
+reset the app.
+Learn how to save your work (detailed below) before you experiment
+with the \verb\Reload\ button.
+Across the top are tabs that organize the major functions of the model builder app.
+On the left side is a control panel for the currently selected tab \verb\Data\.
+Example data sets are available at the bottom of the control panel.
+You are welcome to experiment with these, but we will focus on
+the process of loading an external data set.
+If you prefer to follow along with a video then
+browse to \url{http://youtu.be/xHeb5_CWnCk} for dichotomous data
+and \url{http://youtu.be/iwtpleltteQ} for polytomous data.
+
+\section{Dichotomous data}\label{sec:dichotomous}
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[width=0.48\textwidth]{ss02}
+\caption{After loading the g341-19.csv data.}
+\label{fig:g341-19-part1}
+\end{wrapfigure}
+
+Click on the \verb\Choose File\ button\footnote{It may read \code{Choose CSV File}.
+The exact appearance may differ on your system.} and select \verb\g341-19.csv\,
+a dichotomous data set that is available as an online supplement to this article.
+The first 6 lines will appear in the \verb\Unparsed content\ section
+(see Figure~\ref{fig:g341-19-part1}).\footnote{We realize that these screenshots
+are illegible when printed on paper.
+Inspect them using magnification on your computer.}
+This makes it easy to see how the file is formatted.
+The \verb\Parsed content\ section reports an error.
+By reading the error carefully,
+you will find mention that ``duplicate `row.names' are not allowed.''
+Since \verb\Row names?\ is enabled in the control panel,
+the model builder app expects the first column of data to be dedicated to row names.
+A row name is typically the examinee's name or numeric identifier.
+A glance at the unparsed content reveals that no row names have
+been given in this data set.
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[width=.48\textwidth]{ss03}
+\caption{A summary of the g341-19.csv data set when parsed incorrectly as a single column.}
+\label{fig:g341-19-part2}
+\end{wrapfigure}
+
+Click the \verb\Row names?\ checkbox in the control panel
+to disable row names.
+Immediately (without reloading the data),
+the error message in the \verb\Parsed content\ section
+will be replaced by some of the data organized into a single column.
+The column name will read \verb\X010111111100\.
+A column name like that should raise suspicion.
+Since the \verb\Header?\ checkbox is enabled in the control panel,
+the model builder app expects the first line of the data to contain column names.
+Therefore, the first line of data is misinterpreted.
+
+Click the \verb\Header?\ checkbox in the control panel
+to disable column names.
+The column in the \verb\Parsed content\ section will
+now be labeled \verb\V1\.
+Click on the \verb\Item summary\ as an alternate way
+to verify that the data is loaded and parsed accurately.
+The main content area includes two elements,
+a selection for the \verb\Row frequency column\ and
+a table of items by \verb\Outcomes\ and \verb\Missing\ (see Figure~\ref{fig:g341-19-part2}).
+The \verb\Row frequency column\ is used when you have already
+reduced your data to unique rows and row counts.
+The example data set \verb\LSAT6\ is in this format.
+For our current data set, leave the \verb\Row frequency column\ set to $-$.
+
+The information conveyed in the item table should rouse suspicion.
+There is only 1 row (or 1 item) with 721 outcomes.
+What happened is that the parsing is still not working and
+all the items are treated as a single column.
+For example, the first row ``0 1 0 1 1 1 1 1 1 1 0 0''
+is not treated as 12 separate numbers but as a single uninterpreted unit.
+To fix the parsing,
+we need to select \verb\Whitespace\ as the \verb\Separator\ in the control panel.
+With this last error corrected,
+the table is updated with 12 items labeled V1, V2, \dots, V12 and all with 2 outcomes.
+With the data correctly loaded, click on the
+\verb\Outcomes\ tab on the top bar.
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[width=0.48\textwidth]{ss04}
+\caption{The Outcomes tab without any recoding rules.}
+\label{fig:g341-19-part3}
+\end{wrapfigure}
+
+The control panel on the \verb\Outcomes\ tab packs a lot of functionality (Figure~\ref{fig:g341-19-part3}).
+The first two selectors are mutually exclusive and
+permit working with all items having
+the same outcomes or with specific items, respectively.
+The Outcome set ``V1'' is currently selected
+as seen in the control panel on the left side.
+In these data, all items have the same possible outcomes (0 or 1).
+Therefore, there is only one outcome set.
+The name ``V1'' does not just refer to the item ``V1'' but to
+all items, because all items have the same outcomes.
+
+For clarity, it is often helpful to rename outcomes.
+The \verb\Recode from\ selector should have ``0'' selected.
+Change the \verb\to\ selector to \verb\<Rename>\, enter
+``incorrect'' for the \verb\New name\, and click the
+\verb\Add mapping\ button.
+This will create a recoding rule that will show up
+in the \verb\Recode Table\ (Figure~\ref{fig:g341-19-part4}).
+Similarly, rename the ``1'' outcome to ``correct'' and
+again click the \verb\Add mapping\ button.
+At this point, you should have 2 rules in the \verb\Recode Table\.
+
+\begin{figure}[h]
+\begin{minipage}[t]{0.475\linewidth}
+\includegraphics[width=\textwidth]{ss05}
+\caption{The outcome ``0'' is renamed to ``incorrect'' and we are poised to rename ``1'' to ``correct.''
+In a moment, we will click the ``Add mapping'' button.}
+\label{fig:g341-19-part4}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.475\linewidth}
+\includegraphics[width=\textwidth]{ss06}
+\caption{Outcome reorder tool with 1 reordering rule.}
+\label{fig:g341-19-part5}
+\end{minipage}
+\end{figure}
+
+Click on the \verb\Reorder\ tab.
+Here you will find the outcomes sorted in lexical order.
+Drag one of the outcomes to reverse the order (as in Figure~\ref{fig:g341-19-part5}).
+Similar to the operation of renaming outcomes,
+this reordering step is not strictly necessary
+but is often helpful to keep things straight in our minds.
+With dichotomous outcomes,
+there are not that many ways that things can go wrong.
+However, it is good practice to use self-explanatory
+labels and standardized ordering.
+This is especially true when there are more than 2 outcomes
+to worry about.
+
+We will not use the \verb\Reverse\ tab and other control
+panel elements in the present example.
+In survey design, it is common for outcomes to have a
+canonical order with some items reverse scored.
+The \verb\Reverse\ tab is used to reverse the outcome
+order of some subset of items without dragging the
+outcomes around with the \verb\Reorder\ tool.
+This can save a lot of dragging when there are
+more than 2 outcomes.
+The \verb\Add outcome\ tool permits the addition
+of outcomes that are not represented in the data.
+This might happen when a measure is in development
+and we are fitting a preliminary model just to
+get a vague idea of how the item is working.
+To fit an item that lacks data on some outcomes,
+it is usually necessary to use the nominal
+response model with a less than full rank
+parameterization \citep[similar to][]{thissen1989}.
+In addition to renaming, the recode mappings tool can merge or collapse outcomes.
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[width=0.48\textwidth]{ss07}
+\caption{Configuration of latent factors.}
+\label{fig:g341-19-part6}
+\end{wrapfigure}
+For example, we might have an outcome set consisting of
+ ``Agree,'' ``Agree somewhat,'' ``Not sure,'' ``Disagree somewhat,'' and ``Disagree.''
+It is straightforward to merge ``Agree somewhat'' to ``Agree'' and
+ ``Disagree somewhat'' to ``Disagree,'' resulting in only 3 outcomes.
+Of course, it is not always obvious which outcomes to merge.
+The recode tool can also recode an outcome to \verb\<NA>\,
+which causes that outcome to be interpreted as missing.
+Finally, the \verb\Discard\ button at the bottom of the control
+panel allows us to discard any rule that we created.
+So feel free to experiment.
+
+Click on the \verb\Model\ tab on the top bar.
+The first decision we need to make is
+how many latent factors to include in our model (Figure~\ref{fig:g341-19-part6}).
+If we are not sure, a good starting point is 1.
+By default, the first latent factor is called \verb\teacup\.
+In case there was any doubt,
+``teacup'' is not a very good name for a latent trait.
+We deliberately picked ridiculous factors names
+to encourage users to pick names that make sense in
+the context of the data under analysis.
+For example, a good factor name for a math test might be \verb\math\.
+If you cannot think of a good factor name,
+you could use ``latent trait,'' but this name only works well for a single factor model.
+You really should make an effort to think of descriptive names before you
+start using trait1, trait2, etc.
+If you are not sure how many factors to use then use 1 for now.
+We will revisit this question in Section~\ref{section:ifa}.
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[width=0.48\textwidth]{ss08}
+\caption{Editing the models and parameters of a subset of items.}
+\label{fig:g341-19-part7}
+\end{wrapfigure}
+
+The \verb\Reorder\ tab allows you to change the order of your items.
+This can be helpful because of the way that item model and parameter
+editing works.
+To get familiar with how item editing works,
+click on the \verb\Parameters\ tab.
+The main content area of the \verb\Parameters\ tab contains a lot
+of information.
+The first thing to notice is that all of the tables have the same
+column labels.
+Each item is assigned to a column.
+Using the control panel, we will focus on only a subset of items.
+Change the first selector \verb\Edit items from:\ from \verb\V1\ to \verb\V7\.
+This will hide the first 6 items, making the tables in the main content
+area look more manageable (Figure~\ref{fig:g341-19-part7}).
+The first two selectors facilitate item range selection.
+To reveal all items again, use the \verb\Focus all items\ button.
+Item selection is important to understand because the remainder
+of the controls in the control panel operate on only the selected (visible) items.
+
+With only items \verb\V7\ to \verb\V12\ visible,
+let us place an equality constraint on the slope or latent factor loading.
+Type ``slope'' into the \verb\Label\ textbox and click the \verb\Set Label\ button.
+The label \verb\slope\ should appear in all columns of the first row
+of the \verb\Labels\ table in the main content area.
+Now let us switch to the first 6 items.
+This can be accomplished in a variety of ways.
+One way is to change the first selector from \verb\V7\ to \verb\V6\
+and the second selector from \verb\V12\ to \verb\V1\.
+
+With only items \verb\V1\ to \verb\V6\ visible,
+select \verb\drm\ from the \verb\Model\ selector.
+\verb\drm\ is an abbreviation for the 4PL dichotomous response model \citep{loken2010},
+which has 4 parameters when there is 1 factor.
+The \verb\g\ and \verb\u\ rows should appear in
+all of the tables in the main content area.
+Parameter \verb\g\ is the pseudo-guessing lower bound
+and \verb\u\ is the upper bound.
+The upper bound has been used
+to better model high ability examinees in a Computerized Adaptive Testing context \citep{magis2013}.
+Even high ability examinees may occasionally miss an easy item.
+Here we will fix the upper bound to 1
+(meaning that an examinee with sufficiently high ability will never answer incorrectly).
+Since the bound parameters are expressed on a logit scale, we will use $\logit(1)$.
+Select \verb\u\ from the \verb\Parameter\ selector and
+\verb\Inf\ from the \verb\Free\ selector (since $\logit(1)=\inf$).
+The row of \verb\Starting values\ for \verb\u\ should change to \verb\Inf\
+and the corresponding \verb\Is free\ row should change from \verb\TRUE\ to \verb\FALSE\.
+With this constraint,
+the 4PL dichotomous response model is equivalent to the 3PL model \citep{birnbaum1968}.
+
+The pseudo-guessing lower bound \verb\g\ represents the chance
+that an examinee will get the item correct by guessing.
+Typically, the expected guessed-correct probability for a 3-alternative item
+is $\frac{1}{3}$ and $\frac{1}{n}$ for an $n$-alternative item.
+Estimating the lower bound from data without knowing how
+many alternatives were presented to the examinee typically
+requires much more data than is required to estimate other parameters.
+A Bayesian prior is often used on the lower bound
+with the mode of the prior set to the expected guessed-correct probability.
+This is easily accomplished by dragging the \verb\Prior mode\ slider
+and clicking the \verb\Set\ button.
+Let us imagine that these items had 4 alternatives.
+Select \verb\g\ from the \verb\Parameter\ selector,
+move the \verb\Prior mode\ slider to 4, and click the nearby \verb\Set\ button.
+Two tables will change.
+Each cell of the \verb\g\ row of the \verb\Labels\ table will
+be assigned a unique label.
+This is necessary because Bayesian priors are associated with labels,
+not with particular parameters.
+In addition,
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[width=0.48\textwidth]{ss09}
+\caption{Item tables after setting up our model.}
+\label{fig:g341-19-part8}
+\end{wrapfigure}
+the \verb\Bayesian prior mode\ table will show $\logit(1/4)$ in the \verb\g\ row.
+The logit reflects that the parameter is estimated on the logit scale,
+but it is much easier for humans to understand a probability expressed as a fraction
+rather than raw logit units.
+
+We will not use the \verb\Nominal Tc\ selector for these data.
+\verb\Nominal Tc\ only applies to items with more than 2 possible
+outcomes when using the nominal response model \citep{thissen2010}.
+Before proceeding,
+go ahead and click the \verb\Focus all items\ button.
+Your screen should look like Figure~\ref{fig:g341-19-part8},
+except for different starting values.
+Click on the \verb\Exclude\ tab.
+This is an easy way to exclude some of the items from analysis.
+Finally, click on the \verb\Summary\ tab.
+Here you will find a summary of your model settings.
+Note that the number of outcomes may differ from the number of outcomes
+reported in the summary table found on under the \verb\Data\ top bar page
+due to recoding.
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[width=0.48\textwidth]{ss10}
+\caption{Restoring the settings.}
+\label{fig:g341-19-part9}
+\end{wrapfigure}
+We are done setting up our model.
+Before proceeding,
+it would be wise to save our model configuration so we can come back
+at a later time and make small adjustments without going through
+the whole exhaustive process again.
+Click \verb\Settings\ on the top bar.
+In the main content area, you will find a preview of what the
+settings file will look like.
+Click the \verb\Download\ button and move the file to a suitable
+location on your computer.
+
+To verify that you can reliably restore the saved settings,
+open a new browser tab to the same address by pasting the URL address
+from the current tab (without closing the current one).
+You should get a screen like Figure~\ref{fig:start-screen}.
+Again go through the procedure of loading the data
+(Figures~\ref{fig:g341-19-part1} and \ref{fig:g341-19-part2}).
+Once your data is loaded,
+click \verb\Settings\ on the top bar and load the file that you recently saved.
+If all goes well, you should see a screen similar to Figure~\ref{fig:g341-19-part9}.
+Go ahead and look back through the editors under the \verb\Outcomes\ and \verb\Model\
+sections of the top bar.
+You should find all your hard work faithfully preserved.
+Now you can close either of the 2 browser tabs that you have open.
+They both have the same status.
+
+With our model set up and saved,
+click \verb\Analysis\ on the top bar.
+This screen looks and functions similarly to the \verb\Settings\ screen.
+However, the control panel offers a few options specific to
+code generation.
+The \verb\Functional form for dichotomous bound prior density\ selector
+chooses the distributional form of the Bayesian prior.
+\verb\Logit-normal\ is the more recent scheme \citep{cai2011}.
+The \verb\Information matrix method\ is set to \verb\Oakes\ by default.
+In a simulation study included with \pkg{OpenMx},
+the Oakes method \citep{oakes1999} exhibited accuracy comparable
+to central difference with Richardson extrapolation
+and time linear in the number of parameters.
+Click the \verb\Download\ button, save the \verb\rmarkdown\ code,
+open the file in \pkg{RStudio},
+and follow the instructions to render it into a web page.
+The details of the generated report are likely to evolve.
+There may be some differences between the generated code
+in this article and the most recent version,
+but there should be a correspondence between the basic elements.
+
+\begin{lstlisting}[name=cont]
+---
+title: "g341-19"
+date: "14-Nov-2014"
+output: html_document
+---
+
+```{r}
+options(width=120, scipen=2, digits=2)  ## \label{e1:options}
+suppressPackageStartupMessages(library(OpenMx))    ## \label{e1:pkg1}
+suppressPackageStartupMessages(library(rpf))
+suppressPackageStartupMessages(library(ifaTools))
+library(xtable)
+options(xtable.type='html')    ## \label{e1:pkg2}
+
+# Adjust the path in the next statement to load your data
+data <- read.csv(file='g341-19.csv',header=FALSE,sep=' ', ## \label{e1:load1}
+  stringsAsFactors=FALSE,check.names=FALSE) ## \label{e1:load2}
+colnames(data) <- mxMakeNames(colnames(data), unique=TRUE) ## \label{e1:colnames}
+
+factors <- "ability"  ## \label{e1:factor1}
+numFactors <- length(factors)
+spec <- list()
+spec[1:6] <- rpf.drm(factors=numFactors)
+spec[7:12] <- rpf.grm(factors=numFactors,outcomes=2)  ## \label{e1:factor2}
+names(spec) <- c("V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9", "V10", 
+  "V11", "V12")
+
+missingColumns <- which(is.na(match(names(spec), colnames(data)))) ## \label{e1:colmatch}
+if (length(missingColumns)) {
+  stop(paste('Columns missing in the data:',
+    omxQuotes(names(spec)[missingColumns])))
+}
+
+data[names(spec)] <- mxFactor(data[names(spec)], levels=0:1, ## \label{e1:mxfactor}
+  labels=c("incorrect", "correct"))
+
+set.seed(1)   # uncomment to get the same starting values every time
+startingValues <- mxSimplify2Array(lapply(spec, rpf.rparam))
+rownames(startingValues) <- paste0('p', 1:nrow(startingValues))
+rownames(startingValues)[1:numFactors] <- factors
+
+imat <- mxMatrix(name='item', values=startingValues, free=!is.na(startingValues)) ## \label{e1:item}
+imat$free['p4',1:6] <- FALSE
+imat$values['p4',1:6] <- Inf
+imat$labels['ability',7:12] <- 'slope'
+imat$labels['p3',1:1] <- 'V1_g'
+imat$labels['p3',2:2] <- 'V2_g'
+imat$labels['p3',3:3] <- 'V3_g'
+imat$labels['p3',4:4] <- 'V4_g'
+imat$labels['p3',5:5] <- 'V5_g'
+imat$labels['p3',6:6] <- 'V6_g'
+hasLabel <- !is.na(imat$labels)
+for (lab1 in unique(imat$labels[hasLabel])) {
+  imat$values[hasLabel & imat$labels==lab1] <- 
+    sample(imat$values[hasLabel & imat$labels==lab1], 1)
+}
+data <- compressDataFrame(data)
+itemModel <- mxModel(model='itemModel', imat,
+           mxData(observed=data, type='raw', numObs=sum(data[['freq']]), sort=FALSE),
+           mxExpectationBA81(ItemSpec=spec, weightColumn='freq'),
+           mxFitFunctionML())
+
+priorLabels <- c("V1_g", "V2_g", "V3_g", "V4_g", "V5_g", "V6_g")
+priorParam <- mxMatrix(name='priorParam', nrow=1, ncol=length(priorLabels),
+               free=TRUE, labels=priorLabels)
+priorParam$values <- imat$values[ match(priorParam$labels, imat$labels) ]
+priorMode <- c(priorParam$values)
+priorMode[1:6] <- logit(1/4)
+priorModel <- univariatePrior('logit-norm', priorLabels, priorMode)
+container <- mxModel(model='container', itemModel, priorModel,  ## \label{e1:container}
+  mxFitFunctionMultigroup(groups=c('itemModel.fitfunction', 'univariatePrior.fitfunction')))
+
+emStep <- mxComputeEM('itemModel.expectation', 'scores',
+  mxComputeNewtonRaphson(), verbose=2L,  ## \label{e1:verbose}
+  information='oakes1999', infoArgs=list(fitfunction='fitfunction'))
+computePlan <- mxComputeSequence(list(EM=emStep,
+         HQ=mxComputeHessianQuality(),
+         SE=mxComputeStandardError()))
+
+m1Fit <- mxRun(container) ## \label{e1:run}
+
+m1Grp <- as.IFAgroup(m1Fit$itemModel, minItemsPerScore=1L)  ## \label{e1:ifagroup}
+```
+\end{lstlisting}
+
+<<>>=
+options(width=120, scipen=2, digits=2)
+suppressPackageStartupMessages(library(OpenMx))
+suppressPackageStartupMessages(library(rpf))
+suppressPackageStartupMessages(library(ifaTools))
+library(xtable)
+
+# Adjust the path in the next statement to load your data
+data <- read.csv(file='~/ifa/mbManual/g341-19.csv',header=FALSE,sep='',quote="",stringsAsFactors=FALSE,check.names=FALSE)
+colnames(data) <- mxMakeNames(colnames(data), unique=TRUE)
+
+factors <- "ability"
+numFactors <- length(factors)
+spec <- list()
+spec[1:6] <- rpf.drm(factors=numFactors)
+spec[7:12] <- rpf.grm(factors=numFactors,outcomes=2)
+names(spec) <- c("V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9", "V10", 
+  "V11", "V12")
+
+missingColumns <- which(is.na(match(names(spec), colnames(data))))
+if (length(missingColumns)) {
+  stop(paste('Columns missing in the data:', omxQuotes(names(spec)[missingColumns])))
+}
+
+data[names(spec)] <- mxFactor(data[names(spec)], levels=0:1, labels=c("incorrect", "correct"))
+
+#set.seed(1)   # uncomment to get the same starting values every time
+startingValues <- mxSimplify2Array(lapply(spec, rpf.rparam))
+rownames(startingValues) <- paste0('p', 1:nrow(startingValues))
+rownames(startingValues)[1:numFactors] <- factors
+
+imat <- mxMatrix(name='item', values=startingValues, free=!is.na(startingValues))
+imat$free['p4',1:6] <- FALSE
+imat$values['p4',1:6] <- Inf
+imat$labels['ability',7:12] <- 'slope'
+imat$labels['p3',1:1] <- 'V1_g'
+imat$labels['p3',2:2] <- 'V2_g'
+imat$labels['p3',3:3] <- 'V3_g'
+imat$labels['p3',4:4] <- 'V4_g'
+imat$labels['p3',5:5] <- 'V5_g'
+imat$labels['p3',6:6] <- 'V6_g'
+hasLabel <- !is.na(imat$labels)
+for (lab1 in unique(imat$labels[hasLabel])) {
+  imat$values[hasLabel & imat$labels==lab1] <- 
+    sample(imat$values[hasLabel & imat$labels==lab1], 1)
+}
+data <- compressDataFrame(data)
+itemModel <- mxModel(model='itemModel', imat,
+           mxData(observed=data, type='raw', numObs=sum(data[['freq']]), sort=FALSE),
+           mxExpectationBA81(ItemSpec=spec, weightColumn='freq'),
+           mxFitFunctionML())
+
+priorLabels <- c("V1_g", "V2_g", "V3_g", "V4_g", "V5_g", "V6_g")
+priorMode <- rep(NA, length(priorLabels))
+priorMode[1:6] <- logit(1/4)
+priorModel <- univariatePrior('logit-norm', priorLabels, priorMode)
+container <- mxModel(model='container', itemModel, priorModel,
+  mxFitFunctionMultigroup(groups=c('itemModel.fitfunction', 'univariatePrior.fitfunction')))
+
+emStep <- mxComputeEM('itemModel.expectation', 'scores',
+  mxComputeNewtonRaphson(), verbose=0L,
+  information='oakes1999', infoArgs=list(fitfunction='fitfunction'))
+computePlan <- mxComputeSequence(list(EM=emStep,
+         HQ=mxComputeHessianQuality(),
+         SE=mxComputeStandardError()))
+container <- mxModel(container, computePlan)
+
+m1Fit <- mxRun(container, silent=TRUE)
+
+m1Grp <- as.IFAgroup(m1Fit$itemModel, minItemsPerScore=1L)
+@ 
+
+The first chunk of code builds the model and optimizes it.
+We adjust the output of long lines and numbers (line~\ref{e1:options})
+and load packages (lines~\ref{e1:pkg1}--\ref{e1:pkg2}).
+The data set is loaded (Figure~\ref{fig:g341-19-part2}) in lines~\ref{e1:load1}--\ref{e1:load2}.
+Latent factors are configured (Figure~\ref{fig:g341-19-part6}) in lines~\ref{e1:factor1}--\ref{e1:factor2}.
+We strongly encourage the use of informative column (item) names,
+but line~\ref{e1:colnames} will take care of assigning syntactically valid
+column names if informative names are not available.
+The script is crafted such that it can work on other data sets
+as long as the required columns are found (line~\ref{e1:colmatch}).
+\verb\mxFactor\ does the recoding and reordering (Figures~\ref{fig:g341-19-part3}--\ref{fig:g341-19-part5}).
+\verb\mxFactor\ offers a number of important safety and convenience
+features beyond what is available from \verb\factor\
+or \verb\ordered\ (line~\ref{e1:mxfactor}).
+The item \verb\mxMatrix\ (line~\ref{e1:item}) contains most of
+the information in the item tables (Figure~\ref{fig:g341-19-part8}).
+Everything goes into the \verb\container\ model (line~\ref{e1:container}).
+The model is optimized (line~\ref{e1:run}).
+Since we did not disable \verb\Show model fitting progress\
+(reflected by \verb\verbose=2L\ at line~\ref{e1:verbose}),
+we obtain some diagnostics upon knitting the Rmarkdown to HTML.
+
+\begin{lstlisting}[name=cont]
+[0] ComputeEM: Welcome, tolerance=1e-09 accel=varadhan2008 info=2
+[0] ComputeEM: msteps 2 initial fit 37185.0001   ## \label{e2:traj1}
+[0] ComputeEM[2]: msteps 11 fit 34167.9816 rel change 0.0882995805
+[0] ComputeEM[3]: msteps 5 fit 33699.978 rel change 0.0138873556
+[0] ComputeEM[4]: msteps 14 fit 33549.9723 rel change 0.00447111437
+[0] ComputeEM[5]: msteps 5 fit 33455.9478 rel change 0.00281039684
+[0] ComputeEM[6]: msteps 3 fit 33454.4705 rel change 4.41596231e-05
+[0] ComputeEM[7]: msteps 3 fit 33453.8021 rel change 1.99793343e-05
+[0] ComputeEM[8]: msteps 3 fit 33453.2067 rel change 1.77968988e-05
+[0] ComputeEM[9]: msteps 2 fit 33453.2062 rel change 1.57420931e-08
+[0] ComputeEM[10]: msteps 2 fit 33453.206 rel change 5.03007605e-09
+[0] ComputeEM[11]: msteps 2 fit 33453.2059 rel change 2.89615064e-09
+[0] ComputeEM[12]: msteps 2 fit 33453.2059 rel change 6.61823582e-10   ## \label{e2:traj2}
+[0] ComputeEM: cycles 12/500 total mstep 54 fit 33453.205893   ## \label{e2:fit}
+[0] ComputeEM: Oakes1999 method=simple perturbation=0.001000
+[0] ComputeEM: deriv of gradient for 0
+[0] ComputeEM: deriv of gradient for 1
+[0] ComputeEM: deriv of gradient for 2
+[0] ComputeEM: deriv of gradient for 3
+[0] ComputeEM: deriv of gradient for 4
+[0] ComputeEM: deriv of gradient for 5
+[0] ComputeEM: deriv of gradient for 6
+[0] ComputeEM: deriv of gradient for 7
+[0] ComputeEM: deriv of gradient for 8
+[0] ComputeEM: deriv of gradient for 9
+[0] ComputeEM: deriv of gradient for 10
+[0] ComputeEM: deriv of gradient for 11
+[0] ComputeEM: deriv of gradient for 12
+[0] ComputeEM: deriv of gradient for 13
+[0] ComputeEM: deriv of gradient for 14
+[0] ComputeEM: deriv of gradient for 15
+[0] ComputeEM: deriv of gradient for 16
+[0] ComputeEM: deriv of gradient for 17
+[0] ComputeEM: deriv of gradient for 18
+[0] ComputeEM: deriv of gradient for 19
+[0] ComputeEM: deriv of gradient for 20
+[0] ComputeEM: deriv of gradient for 21
+[0] ComputeEM: deriv of gradient for 22
+[0] ComputeEM: deriv of gradient for 23
+[0] ComputeEM: deriv of gradient for 24
+\end{lstlisting}
+
+Given that the starting values are random,
+the initial fit and trajectory (lines~\ref{e2:traj1}--\ref{e2:traj2})
+should differ when you try optimizing the same model
+but the optimum (line~\ref{e2:fit}) should be exactly the same.
+If you do not reach the same solution,
+try again with different starting values.
+The function \verb\as.IFAgroup\ (line~\ref{e1:ifagroup}) is a bridge
+between \pkg{OpenMx} and \pkg{rpf}.
+\pkg{rpf} is an acronym for response probability function
+and contains many IFA-specific diagnostic functions.
+In addition, \pkg{rpf} can be used to analyze IFA models optimized by
+packages other than \pkg{OpenMx}.
+This modularity facilitates the comparison of parameter estimates between packages.
+While most of the code discussed so far is related to \pkg{OpenMx},
+the remainder of this report will mostly involve \pkg{rpf}.
+
+\begin{lstlisting}[name=cont]
+An item factor model was fit with `r length(factors)`
+factors (`r factors`), -2LL=$`r m1Fit$output$fit`$.
+The condition number of the information
+matrix was `r m1Fit$output$conditionNumber`.
+\end{lstlisting}
+
+This is a boilerplate report of model fit. It renders as,
+``An item factor model was fit with \Sexpr{length(factors)}
+factors (\Sexpr{factors}), $-2$LL=$\Sexpr{m1Fit$output$fit}$.
+The condition number of the information
+matrix was \Sexpr{m1Fit$output$conditionNumber}.''
+It is not really feasible to generate a complete Results
+section because there are always considerations idiosyncratic
+to a particular project that dictate how the Results section
+should best unfold.
+However, it is likely that some additional boilerplate reporting
+will be added to the model builder app in a future release.
+
+Although IFA models consider an examinee's response pattern
+as the unit of analysis,
+the sum-score is often of chief practical importance.
+For example,
+students taking the Standardized Aptitude Test for college
+admission only receive their sum-score and do not even know
+which items they answered correctly or incorrectly (unless they earned the maximum sum-score).
+The observation that the sum-score is important has lead to
+the development of a family of diagnostic tests that
+examine how well an IFA model predicts sum-scores.
+
+\begin{lstlisting}[name=cont]
+```{r,fig.height=2}
+got <- sumScoreEAPTest(m1Grp)
+df <- data.frame(score=as.numeric(names(got$observed)),
+            expected=got$expected, observed=got$observed)
+df <- melt(df, id='score', variable.name='source', value.name='n')
+ggplot(df, aes(x=score, y=n, color=source)) + geom_line()
+```
+\end{lstlisting}
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+<<fig.height=2.5>>=
+got <- sumScoreEAPTest(m1Grp)
+df <- data.frame(score=as.numeric(names(got$observed)),
+            expected=got$expected, observed=got$observed)
+df <- melt(df, id='score', variable.name='source', value.name='n')
+ggplot(df, aes(x=score, y=n, color=source)) + geom_line()
+@ 
+\caption{Comparison of the predicted and observed sum-scores.}
+\label{fig:sumScoreEAP}
+\end{wrapfigure}
+
+The first plot provides an overview of how all the items work together
+to predict sum-scores (Figure~\ref{fig:sumScoreEAP}).
+\verb\sumScoreEAPTest\ also conducts a statistical test
+to produce a $p$-value, but this is not reported here because
+the test is fairly new and the meaning of the test has
+not yet been well established \citep{li2012}.
+However, it is still worth looking at this plot because you
+might notice something that is obviously wrong with the model
+(i.e., if the curves mismatch drastically).
+
+\begin{lstlisting}[name=cont]
+```{r,results='asis'}
+ct <- ChenThissen1997(m1Grp)
+print(xtable(ct$pval, paste('Log p-value of local dependence between item pairs.')))
+```
+\end{lstlisting}
+
+<<results='asis'>>=
+ct <- ChenThissen1997(m1Grp)
+print(xtable(ct$pval, paste('Log p-value of local dependence between item pairs.'), "tab:ld", digits=1))
+@ 
+
+A test of local dependence is important to examine \citep{yen1993}.
+Table~\ref{tab:ld} exhibits the log $p$-value
+of the null hypothesis that there is no local dependence between item pairs,
+as is an assumption of IFA.
+Since $\log(.01) \approx -4.6$,
+any absolute magnitude greater than 4.6 can be interpreted as
+rejecting the null hypothesis at the .01 level.
+The sign of each $p$-value is determined by ordinal gamma,
+a measure of association \citep{agresti1990}.
+Positive numbers indicate more correlation than expected.
+These are cause for concern and suggest local dependence \citet{chen1997}.
+Negative numbers indicate less correlation than expected.
+Table~\ref{tab:ld} is also a good example of a weakness
+of comparing expected and observed frequencies:
+all you can know is that \emph{something} is suboptimal,
+but not specifically what.
+The local dependence is most severe between items V1-V6
+and V7-V12, however, it is not clear why.
+Understanding how to improve the model (or the items)
+often requires guesswork and trial-and-error.
+
+\begin{lstlisting}[name=cont]
+```{r,results='asis'}
+sfit <- SitemFit(m1Grp)
+tbl <- t(sapply(sfit, function(r) c(n=r$n, df=r$df, stat=r$statistic, pval=r$pval)))
+print(xtable(tbl, paste0('Sum-score item-wise fit')))
+```
+\end{lstlisting}
+
+<<results='asis'>>=
+sfit <- SitemFit(m1Grp)
+tbl <- t(sapply(sfit, function(r) c(n=r$n, df=r$df, stat=r$statistic, pval=r$pval)))
+print(xtable(tbl, paste0('Sum-score item-wise fit'), 'tab:sitemfit'))
+@ 
+
+Sum-score item fit is another tool for model assessment \citep{orlando2000,kang2008}.
+Each item is tested against the null hypothesis
+that the other items accurately predict the outcome of the item of interest (Table~\ref{tab:sitemfit}).
+Again $p$-values are in log units so a magnitude larger than 4.6 is significant at the .01 level.
+In contrast to the test for local dependence,
+the sign of the $p$-value does not mean anything special here.
+The column $n$ is included for data sets with missingness.
+When there is missingness,
+it can be advantageous to exclude the item
+with the most missing values to increase the sample size of the test.
+Refer to the \verb\SitemFit\ help for details on the options for missing data.
+
+\begin{lstlisting}[name=cont]
+```{r,fig.height=2}
+map1 <- itemResponseMap(m1Grp, factor=1)
+ggplot(map1, aes(x=score, y=item, label=outcome)) +
+  geom_text(size=4, position=position_jitter(h=.25))
+```
+\end{lstlisting}
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+<<fig.height=2.5>>=
+map1 <- itemResponseMap(m1Grp, factor=1)
+ggplot(map1, aes(x=score, y=item, label=outcome)) +
+  geom_text(size=4, position=position_jitter(h=.25))
+@ 
+\caption{Item outcome by average latent score.}
+\label{fig:itemMap}
+\end{wrapfigure}
+
+An item response map is a crude tool for diagnosing certain
+model misspecifications (Figure~\ref{fig:itemMap}).
+Each outcome is assigned the average latent score
+of all the examinees who picked that outcome.
+Usually we advocate the use of the actual outcome
+labels (e.g., ``incorrect'' and ``correct'') instead of numbers.
+For this plot, however, we make an exception because the numbers make
+it easy to inspect whether the outcomes are in ascending order.
+If descending order is observed then it is worth checking
+whether the item needs to be reverse scored or to consider
+whether the item was misinterpreted by some examinees.
+If the response data were manually collected then
+the data entry process should also be checked for errors.
+
+\begin{figure}[h]
+\begin{minipage}[t]{0.475\linewidth}
+<<fig.height=3>>=
+SitemPlot(sfit, names(sfit)[[1]])
+@ 
+\caption{Expected and observed outcome by sum-score.}
+\label{fig:sitemplot}
+\end{minipage}
+\begin{minipage}[t]{0.475\linewidth}
+<<fig.height=3>>=
+iccPlot(m1Grp, names(sfit)[[1]])
+@ 
+\caption{Expected and observed outcome by latent score.}
+\label{fig:iccplot}
+\end{minipage}
+\end{figure}
+
+\begin{lstlisting}[name=cont]
+```{r,fig.height=3}
+pl <- lapply(names(sfit), function(item) { SitemPlot(sfit, item) })
+for (px in 1:length(pl)) {
+  print(pl[[px]])
+}
+\end{lstlisting}
+
+The same ingredients that go into the production of Table~\ref{tab:sitemfit}
+can also be plotted (Figure~\ref{fig:sitemplot}).
+This plot is similar to an item characteristic curve plot (Figure~\ref{fig:iccplot}).
+The main advantage of \verb\SitemPlot\ over \verb\iccPlot\
+is that \verb\SitemPlot\ is well defined regardless of
+the number of latent factors.
+With \verb\iccPlot\,
+you must pick a basis vector in the latent space.
+The tiny numbers across the probability = 1 line of Figures~\ref{fig:sitemplot} and \ref{fig:iccplot}
+are the sample size at that point on the x axis.
+
+\begin{lstlisting}[name=cont]
+basis <- rep(0, length(factors))
+basis[1] <- 1
+plotInformation(m1Grp, width=5, basis=basis)
+```
+\end{lstlisting}
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+<<fig.height=3>>=
+basis <- rep(0, length(factors))
+basis[1] <- 1
+plotInformation(m1Grp, width=5, basis=basis)
+@ 
+\caption{Item information by latent score.}
+\label{fig:info}
+\end{wrapfigure}
+
+Figure~\ref{fig:info} exhibits item information by latent score.
+Similar to \verb\iccPlot\, this plot requires the selection of a basis vector
+where there is more than 1 latent factor.
+Notice that items V7-V12 peak at the same height (near 0.31).
+This is due to our equality constraint on the slope or factor loading on these items.
+By placing this constraint,
+we assume a priori that each of these items contributes exactly the same
+amount of information.
+
+\begin{lstlisting}[name=cont]
+```{r}
+summary(m1Fit)
+```
+\end{lstlisting}
+
+<<>>=
+summary(m1Fit)
+@ 
+
+Exhibited is the \pkg{OpenMx} provided summary of model fit.
+IFA models are exponential family models so we obtain AIC and BIC.
+More fit statistics are available if we provide
+the saturated and independence reference models.
+Reference models will be requested in our next example.
+
+\begin{lstlisting}[name=cont]
+```{r,results='asis'}
+citation('OpenMx')
+```
+\end{lstlisting}
+
+\pkg{OpenMx}, \pkg{rpf}, and \pkg{ifaTools} are free and open-source software.
+The source code is available for
+everybody to view, modify, and use.
+If you find this software useful, we hope you will cite us in your publications.
+
+\section{Polytomous data}\label{sec:polytomous}
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[width=0.48\textwidth]{ss11}
+\caption{Data with a row frequency column.}
+\label{fig:preschool-part1}
+\end{wrapfigure}
+
+Since many things are common between dichotomous and polytomous items,
+we will move quickly through the process of model set up
+and result interpretation.
+Click on the \verb\Choose File\ button and select \verb\preschool.csv\,
+a data set from \citet{thissen1988} that is available as an online supplement to this article.
+Click the \verb\Row names?\ checkbox in the control panel
+to disable row names.
+The format of these data are closer to what
+is expected by default than our first example so less fiddling is required.
+Click on the \verb\Item summary\ tab.
+Here it appears that there are 3 items,
+but the \verb\freq\ column is not an item.
+\verb\freq\ indicates how
+many times a row appeared in the original data.
+These data are compressed;
+only unique rows are provided with frequency counts.
+To instruct the model builder to interpret the \verb\freq\ column as frequency counts,
+select \verb\freq\ from the \verb\Row frequency column\ selector (Figure~\ref{fig:preschool-part1}).
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[width=0.48\textwidth]{ss12}
+\caption{Outcomes renamed and reordered.}
+\label{fig:preschool-part2}
+\end{wrapfigure}
+
+This data set is from a preschool test of numerical knowledge.
+Each item is actually a combination of 2 dichotomous items.
+Similar questions were asked regarding the number 3 and the number 4
+and the pattern of responses mapped to an outcome code.
+The outcomes should be renamed with the recoding tool
+under the \verb\Outcomes\ tab on the top bar (recall Figure~\ref{fig:g341-19-part4}).
+Outcomes 0, 1, 2, and 3 should be renamed to ``neither,'' ``3 only,''
+``4 only,'' and ``both correct,'' respectively, using the Recode tab under the Outcomes top bar page.
+After renaming, reorder the items into the correct order (Figure~\ref{fig:preschool-part2}).
+
+Click \verb\Model\ on the top bar.
+On the \verb\Factors\ tab, we will name the single latent factor ``math.''
+Switch to the \verb\Parameters\ tab.
+Here we select \verb\nrm\ from the \verb\Model\ selector.
+The acronym ``nrm'' stands for the nominal response model \citep{thissen2010}.
+This parameterization of the nominal model can accommodate
+basis matrices $T_a$ and $T_c$ to customize the meaning of the slope
+and intercept coefficients, respectively.
+In principle, the basis matrices can take any pattern,
+but the model builder app is limited to a Fourier basis (a.k.a. trend basis) for the $T_a$ matrix
+and a small number of options for the $T_c$ matrix.
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[width=0.48\textwidth]{ss13}
+\caption{Item model and parameter configuration with equality constraints.}
+\label{fig:preschool-part3}
+\end{wrapfigure}
+
+With $T_a$ set to the trend basis,
+we cannot free both \verb\math\ and \verb\alf1\ because
+they have the same effect on the model and would cause
+the model to be unidentified.
+Fix \verb\alf1\ to 1.
+Select \verb\alf1\ from the \verb\Parameter\ selector
+and select 1 from the \verb\Free\ selector.
+Since we have worked with this data set already,
+we know a few things that can give us a more parsimonious model.
+The \verb\alf2\ parameters can be set equal
+since both items exhibit poor discrimination between
+\verb\neither\, \verb\3 only\, and \verb\4 only\ but
+good discrimination between these outcomes and \verb\both correct\.
+Select \verb\alf2\ with the \verb\Parameter\ selector
+and set the label to \verb\eq1\.
+Since both items are equally difficult,
+we can equate \verb\gam1\.
+Select \verb\gam1\ with the \verb\Parameter\ selector
+and set the label to \verb\eq2\.
+To avoid overfitting with the highest frequency basis vector,
+fix \verb\gam3\ to 0.
+Select \verb\gam3\ with the \verb\Parameter\ selector
+and select \verb\0\ with the \verb\Free\ selector.
+Figure~\ref{fig:preschool-part3} exhibits the final parameter settings.
+
+Click \verb\Analysis\ on the top bar.
+Ensure that \verb\Fit reference models\ is selected,
+and download the analysis script.
+Although this is a simple model,
+it can take almost 100 E-M cycles to converge.
+Therefore, we omit reproduction of the diagnostic output issued during model fit.
+
+<<>>=
+options(width=120, scipen=2, digits=2)
+library(xtable)
+
+# Adjust the path in the next statement to load your data
+data <- read.csv(file='preschool.csv',stringsAsFactors=FALSE,check.names=FALSE)
+colnames(data) <- mxMakeNames(colnames(data), unique=TRUE)
+data[['freq']] <- as.numeric(data[['freq']])
+
+factors <- "math"
+numFactors <- length(factors)
+spec <- list()
+spec[1:2] <- rpf.nrm(factors=numFactors,outcomes=4,T.a='trend', T.c='trend')
+names(spec) <- c("Match", "Identify")
+
+missingColumns <- which(is.na(match(names(spec), colnames(data))))
+if (length(missingColumns)) {
+  stop(paste('Columns missing in the data:', omxQuotes(names(spec)[missingColumns])))
+}
+
+data[names(spec)] <- mxFactor(data[names(spec)], levels=0:3, labels=c("neither", "3 only", "4 only", "both correct"))
+
+set.seed(1)   # uncomment to get the same starting values every time
+startingValues <- mxSimplify2Array(lapply(spec, rpf.rparam))
+rownames(startingValues) <- paste0('p', 1:nrow(startingValues))
+rownames(startingValues)[1:numFactors] <- factors
+
+imat <- mxMatrix(name='item', values=startingValues, free=!is.na(startingValues))
+imat$free['p2',] <- FALSE
+imat$values['p2',1:2] <- 1
+imat$free['p7',] <- FALSE
+imat$values['p7',1:2] <- 0
+imat$labels['p3',] <- 'eq1'
+imat$labels['p5',] <- 'eq2'
+hasLabel <- !is.na(imat$labels)
+for (lab1 in unique(imat$labels[hasLabel])) {
+  imat$values[hasLabel & imat$labels==lab1] <-
+    sample(imat$values[hasLabel & imat$labels==lab1], 1)
+}
+itemModel <- mxModel(model='itemModel', imat,
+           mxData(observed=data, type='raw', numObs=sum(data[['freq']]), sort=FALSE),
+           mxExpectationBA81(ItemSpec=spec, weightColumn='freq'),
+           mxFitFunctionML())
+
+
+emStep <- mxComputeEM('itemModel.expectation', 'scores',
+  mxComputeNewtonRaphson(), verbose=0L,
+  information='oakes1999', infoArgs=list(fitfunction='fitfunction'))
+computePlan <- mxComputeSequence(list(emStep,
+         mxComputeHessianQuality(),
+         mxComputeStandardError()))
+
+m1Fit <- mxRun(mxModel(itemModel, computePlan), silent=TRUE)
+if (abs(m1Fit$output$fit - 2767.48) > .1) stop("Fit not achieved")
+
+m1Grp <- as.IFAgroup(m1Fit, minItemsPerScore=1L)
+@ 
+
+\begin{lstlisting}[name=cont]
+---
+title: "preschool"
+date: "18-Nov-2014"
+output: html_document
+---
+
+```{r}
+options(width=120, scipen=2, digits=2)
+suppressPackageStartupMessages(library(OpenMx))
+suppressPackageStartupMessages(library(rpf))
+suppressPackageStartupMessages(library(ifaTools))
+library(xtable)
+options(xtable.type='html')
+
+# Adjust the path in the next statement to load your data
+data <- read.csv(file='preschool.csv',stringsAsFactors=FALSE,check.names=FALSE)
+colnames(data) <- mxMakeNames(colnames(data), unique=TRUE)
+data[['freq']] <- as.numeric(data[['freq']]) ## \label{e3:freq}
+
+factors <- "math"
+numFactors <- length(factors)
+spec <- list()
+spec[1:2] <- rpf.nrm(factors=numFactors,outcomes=4,T.a='trend', T.c='trend') ## \label{e3:nominal}
+names(spec) <- c("Match", "Identify")
+
+missingColumns <- which(is.na(match(names(spec), colnames(data))))
+if (length(missingColumns)) {
+  stop(paste('Columns missing in the data:', omxQuotes(names(spec)[missingColumns])))
+}
+
+data[names(spec)] <- mxFactor(data[names(spec)], levels=0:3,
+  labels=c("neither", "3 only", "4 only", "both correct"))
+
+set.seed(1)   # uncomment to get the same starting values every time
+startingValues <- mxSimplify2Array(lapply(spec, rpf.rparam))
+rownames(startingValues) <- paste0('p', 1:nrow(startingValues))
+rownames(startingValues)[1:numFactors] <- factors
+
+imat <- mxMatrix(name='item', values=startingValues, free=!is.na(startingValues))
+imat$free['p2',] <- FALSE
+imat$values['p2',1:2] <- 1
+imat$free['p7',] <- FALSE
+imat$values['p7',1:2] <- 0
+imat$labels['p3',] <- 'eq1'
+imat$labels['p5',] <- 'eq2'
+hasLabel <- !is.na(imat$labels)
+for (lab1 in unique(imat$labels[hasLabel])) {
+  imat$values[hasLabel & imat$labels==lab1] <-    ## \label{e3:equality}
+    sample(imat$values[hasLabel & imat$labels==lab1], 1)
+}
+itemModel <- mxModel(model='itemModel', imat,
+           mxData(observed=data, type='raw', numObs=sum(data[['freq']]),
+                  sort=FALSE), ## \label{e3:sort}
+           mxExpectationBA81(ItemSpec=spec, weightColumn='freq'),
+           mxFitFunctionML())
+
+
+emStep <- mxComputeEM('itemModel.expectation', 'scores',
+  mxComputeNewtonRaphson(), verbose=2L,
+  information='oakes1999', infoArgs=list(fitfunction='fitfunction'))
+computePlan <- mxComputeSequence(list(emStep,
+         mxComputeHessianQuality(),
+         mxComputeStandardError()))
+
+m1Fit <- mxRun(mxModel(itemModel, computePlan))
+
+m1Grp <- as.IFAgroup(m1Fit, minItemsPerScore=1L)
+```
+\end{lstlisting}
+
+Although response pattern frequencies are typically natural numbers,
+fractional frequencies are not prohibited (line~\ref{e3:freq}).
+A Fourier basis is used for both nominal model transformation matrices (line~\ref{e3:nominal}).
+Customization is limited in the model builder app,
+but you can use any matrices by editing the generated code.
+Starting values must respect equality constraints (line~\ref{e3:equality}).
+By default \pkg{OpenMx}, sorts data prior to optimization.
+Since our data are already compressed,
+no benefit would be obtained by sorting (line~\ref{e3:sort}).
+
+\begin{lstlisting}[name=cont]
+An item factor model was fit with `r length(factors)`
+factors (`r factors`), -2LL=$`r m1Fit$output$fit`$.
+The condition number of the information matrix was `r round(m1Fit$output$conditionNumber)`.
+\end{lstlisting}
+
+The boilerplate renders as,
+``An item factor model was fit with \Sexpr{length(factors)}
+factors (\Sexpr{factors}), $-2$LL=$\Sexpr{m1Fit$output$fit}$.
+The condition number of the information
+matrix was \Sexpr{m1Fit$output$conditionNumber}.''
+
+\begin{lstlisting}[name=cont]
+```{r,fig.height=2}
+got <- sumScoreEAPTest(m1Grp)
+df <- data.frame(score=as.numeric(names(got$observed)),
+            expected=got$expected, observed=got$observed)
+df <- melt(df, id='score', variable.name='source', value.name='n')
+ggplot(df, aes(x=score, y=n, color=source)) + geom_line()
+```
+
+```{r,results='asis'}
+ct <- ChenThissen1997(m1Grp)
+print(xtable(ct$pval, paste('Log p-value of local dependence between item pairs.')))
+```
+
+```{r,results='asis'}
+sfit <- SitemFit(m1Grp)
+tbl <- t(sapply(sfit, function(r) c(n=r$n, df=r$df, stat=r$statistic, pval=r$pval)))
+print(xtable(tbl, paste0('Sum-score item-wise fit')))
+```
+\end{lstlisting}
+
+<<results='asis'>>=
+sfit <- SitemFit(m1Grp)
+tbl <- t(sapply(sfit, function(r) c(n=r$n, df=r$df, stat=r$statistic, pval=r$pval)))
+print(xtable(tbl, paste0('Sum-score item-wise fit'), 'tab:e3-sitemfit'))
+@ 
+
+\begin{lstlisting}[name=cont]
+```{r,fig.height=2}
+map1 <- itemResponseMap(m1Grp, factor=1)
+ggplot(map1, aes(x=score, y=item, label=outcome)) +
+  geom_text(size=4, position=position_jitter(h=.25))
+```
+
+```{r,fig.height=3}
+pl <- lapply(names(sfit), function(item) { SitemPlot(sfit, item) })
+for (px in 1:length(pl)) {
+  print(pl[[px]])
+}
+
+basis <- rep(0, length(factors))
+basis[1] <- 1
+plotInformation(m1Grp, width=5, basis=basis)
+```
+
+```{r}
+summary(m1Fit, refModels=mxRefModels(m1Fit, run = TRUE))  ## \label{e3:refModels}
+```
+\end{lstlisting}
+
+<<>>=
+suppressWarnings(suppressMessages(summary(m1Fit, refModels=mxRefModels(m1Fit, run = TRUE))))
+@ 
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+<<fig.height=1.5>>=
+map1 <- itemResponseMap(m1Grp, factor=1)
+ggplot(map1, aes(x=score, y=item, label=outcome)) +
+  geom_text(size=4, position=position_jitter(h=.25))
+@ 
+\caption{Item outcome by average latent score.}
+\label{fig:preschool-itemmap}
+\end{wrapfigure}
+
+Although the outcomes are not strictly ordered for \verb\Identify\ in
+the item outcome map (Figure~\ref{fig:preschool-itemmap}),
+other measures of model fit look reasonable.
+The sum-score item fit tests are not statistically significant (Table~\ref{tab:e3-sitemfit}).
+Since we requested a saturated and independence model (\verb\mxRefModels\; line~\ref{e3:refModels}),
+CFI, TLI, and RMSEA are available in the \pkg{OpenMx} summary
+and suggest adequate model fit.
+The relative indices of fit are appropriate for these data
+because there are observations for all possible response patterns.
+However, be forewarned that as the multinomial table becomes more sparse,
+these indices become inaccurate.
+For sparse data, a more accurate assessment of model fit is available
+using other methods \citep{bartholomew1999,cai2013b}.
+
+\begin{lstlisting}[name=cont]
+```{r,results='asis'}
+citation('OpenMx')
+```
+\end{lstlisting}
+
+\section{Rasch diagnostics}
+
+If your interest is Rasch models (all slope parameters constrained equal)
+with a single latent factor then you can take advantage of
+Rasch residual-based fit statistics.
+Infit and outfit are available from \verb\rpf.1dim.fit\.
+
+\begin{verbatim}
+rpf.1dim.fit(group=m1Grp, margin=1)  # people
+rpf.1dim.fit(group=m1Grp, margin=2)  # items
+\end{verbatim}
+
+\section{Item factor analysis}\label{section:ifa}
+
+\begin{figure}
+<<fig.height=2>>=
+load("quad.rda")
+
+gcontrol <- subset(control, !is.na(fit))
+gcontrol <- ddply(gcontrol, ~qpoints + qwidth + modelFactors, summarize, pnorm=mean(pnorm))
+gcontrol <- ddply(gcontrol, ~modelFactors, transform, pnorm=log(pnorm))
+#  gcontrol$fit <- scale(control$fit - median(control$fit)) # TODO fix
+pl <- ggplot(gcontrol,
+             aes_string(x="qpoints", y="qwidth", fill="pnorm")) + geom_tile() +
+  facet_wrap(~modelFactors) + labs(x="points", y="width") +
+     guides(fill=guide_legend(title="log(error)"))
+print(pl)
+@ 
+\caption{Log $l^2$-norm of error by quadrature width and number of points
+  for 1~factor (left) and 2~factors (right).
+A wider width is important to accommodate
+data that conform less closely to a normal distribution.
+Even with clean simulated data,
+a width of 3 is too narrow and interferes with accuracy (both panes).
+In the 1 factor case (left),
+at least 21 points are required for high accuracy.
+For 2 factors (right),
+at least 23 points are required for a width of 4 and
+27 points for a width of 5.
+The bright strips at even numbers of point (12, 14, 16, etc)
+indicate that an odd number of points obtain somewhat better accuracy than
+even numbers of points.}
+\label{fig:quad}
+\end{figure}
+
+A common problem is that we do not know how many latent factors
+to employ to most accurately model our data.
+Fortunately, there is a method, item factor analysis \citep{bock1988},
+analogous to factor analysis of continuous indicators \citep{lovie1996}.
+Before proceeding with an example,
+it is important to understand how the quadrature grid
+influences accuracy and optimization time.
+\pkg{OpenMx} uses an equal interval quadrature grid for
+numerical integration.
+Let $Q$ be the number of quadrature points per dimension and $Q_{width}$ be the
+one-sided width of the quadrature for one dimension.
+Points $X_q$ are arranged as
+%
+\begin{align}
+X_q &= Q_{width} (1 - \frac{2q}{Q-1}) \quad\text{for } q \in \{0, \dots, Q-1\}. \label{eqn:quadrature}
+\end{align}
+%
+Generalization to more dimensions is accomplished by replication of
+the same 1~dimensional grid along each dimension.
+For example, a two factor model with 31 points per dimension
+involve $31^2 = 961$ grid points.
+Hence, optimization time is exponential in
+the number of general factors.
+
+Figure~\ref{fig:quad} exhibits a simulation study of
+the influence of quadrature on model accuracy.
+All comparisons are against a 41~point quadrature of width~5.0.
+Before computing the $l^2$-norm,
+the slope matrix was converted into factor loadings,
+%
+\begin{equation}
+\frac{\mathrm{slope}}{\left[ 1 + \mathrm{rowSums}(\mathrm{slope}^2) \right]^\frac{1}{2}}.
+\end{equation}
+%
+For two factor models, a varimax rotation was applied.
+The $l^2$-norm was applied to the resulting slope entries (ignoring intercepts).
+Each grid area in Figure~\ref{fig:quad} represents
+the average of 5 trials with different random starting values.
+
+We will employ the likelihood ratio test for inference.
+The likelihood ratio test is asymptotically consistent
+for sparse multinomial distributions \citep{haberman1977}.
+However, in finite samples, we should not expect that the
+null distribution is well calibrated.
+In brief,
+the $p$-values should not be taken too seriously.
+
+<<cache=TRUE,echo=TRUE>>=
+m1 <- addExploratoryFactors(container, 0)
+m1 <- mxRun(m1, silent=TRUE)
+m2 <- addExploratoryFactors(container, 1)
+m2 <- mxRun(m2, silent=TRUE)
+mxCompare(m2,m1)
+@ 
+
+Here we find that there is reasonably good support
+in favor of a two factor solution.
+However, the slope of items 7-12 are constrained equal.
+Maybe this constraint was a mistake.
+It is possible that these items are well modeled
+by a single factor when all the slopes are freed.
+We cannot directly compare \texttt{m2} against
+a single factor model without the slope constraint
+because these models are not nested.
+However, we can make a number of similar comparisons.
+
+<<cache=TRUE,echo=TRUE>>=
+container2 <- container
+container2$itemModel$item$labels['ability',] <- NA
+m3 <- addExploratoryFactors(container2, 0)
+m3 <- mxRun(m3, silent=TRUE)
+mxCompare(m3,m1)
+@ 
+
+We find that there is a dramatic improvement in fit whether we
+relax the constraint on items 7-12 or we add another factor.
+Without knowing more about how the data was collected,
+parsimony favors a single factor model without constraints on the
+slopes.
+We can further check this idea by comparison
+of two factor models with and without the slope constraint.
+
+<<fig.height=3,cache=TRUE,echo=TRUE>>=
+plotTwoFactors <- function(slope) {
+  lvm <- varimax(toFactorLoading(slope))$loadings
+  if (any(abs(lvm[lvm<0]) > .001)) stop("Got negative loadings")
+  lvm[lvm<0] <- 0
+  df <- as.data.frame(lvm[,1:2])
+  df$name <- rownames(df)
+  pl <- ggplot(df, aes_string(x=rownames(slope)[1],
+                              y=rownames(slope)[2], label="name")) + geom_text()
+  pm <- promax(lvm[,1:2])$rotmat
+  for (dx in 1:ncol(pm)) {
+    d1 <- .5 * pm[,dx] / sqrt(sum(pm[,dx]^2))
+    pl <- pl + geom_segment(x=.5, y=.5, xend=d1[1] + .5, yend=d1[2] + .5,
+                            arrow = arrow(length = unit(.5,"cm")))
+  }
+  pl + xlim(0,1) + ylim(0,1)
+}
+
+m4 <- addExploratoryFactors(container2, 1)
+m4 <- mxRun(m4, silent=TRUE)
+
+grid.arrange(plotTwoFactors(m2$itemModel$item$values[1:2,]) + labs(title="a."),
+             plotTwoFactors(m4$itemModel$item$values[1:2,]) + labs(title="b."), ncol=2)
+
+mxCompare(m4,m2)
+@
+
+A $p$-value of 0.013 is statistically significant
+at the customary 0.05 level,
+but we regard this as non-significant
+in comparison to the other $p$-values
+that are less than $10^{-16}$.
+We conclude that there is no difference between these models.
+For two factor models,
+it can be helpful to plot item factor loadings after a varimax rotation
+and then superimpose promax axes \citep[p.~265]{bock1988}.
+The \verb\plotTwoFactors\ function implements this plot and
+both models are plotted above.
+In both plots, the promax axes are separated by an angle close to $\pi$ radians,
+suggesting a single latent factor.
+The slight differences between plots (a) and (b) are
+probably due to overfitting.
+More precise $p$-values could be obtained using Monte Carlo techniques.
+
+Item factor analysis with more
+than two factors requires patience and expertise.
+Model optimization time becomes an uncomfortable hindrance to
+experimentation.
+An optimization algorithm better suited to
+many latent factors is known but not yet implemented in \pkg{OpenMx} \citep{cai2010b}.
+The model builder offer as many as five factors because,
+as long as the secondary factors are disjoint (not general factors),
+they count as a single factor with respect to estimation time \citep{cai2010}.
+
+\section{Discussion}
+
+We gave detailed instructions on how to set up
+IFA models for analysis of both dichotomous and polytomous data
+using the model builder app.
+We hope this will ease the learning curve for
+the construction of IFA models in \pkg{OpenMx}.
+The model builder app offers limited flexibility by design
+to reduce the number of options for novice users.
+For example, there is no facility for construction of multiple group models.
+This may be construed as a disadvantage,
+but we argue that keeping the app as simple as possible
+is important for newcomers to IFA.
+Learning \pkg{OpenMx} can be a daunting prospect.
+
+\bibliography{pritikin}
+
+\address{
+  Joshua N.~Pritikin\\
+  Department Psychology\\
+  University of Virginia\\
+  Charlottesville, VA 22904 USA}\\
+\email{jpritikin@virginia.edu}
+
+\address{Karen M.~Schmidt\\
+  Department Psychology\\
+  University of Virginia\\
+  Charlottesville, VA 22904 USA}\\
+\email{kschmidt@virginia.edu}

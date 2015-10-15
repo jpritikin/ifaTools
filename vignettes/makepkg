@@ -1,0 +1,16 @@
+#!/bin/sh
+
+name=$(date +%Y%m%d)
+rm -rf $name
+mkdir $name
+cp pritikin-schmidt.Rnw pritikin-schmidt.tex pritikin.bib quad.rda *.csv $name/
+cp *.png $name/
+cp RJwrapper.tex $name/
+#cp RJournal.sty $name/  # only for testing
+cp mk $name/
+cp ~/ifa/ifaTools/inst/example/quadrature.R $name/
+cd $name
+Rscript -e "library(knitr); knit('pritikin-schmidt.Rnw')"
+cd ..
+zip -r mb-$name $name
+rm -r $name
