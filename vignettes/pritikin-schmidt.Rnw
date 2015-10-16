@@ -116,7 +116,7 @@ pl <- ggplot(as.data.frame(grid), aes(skill, correct)) +
     labs(y="% correct")
 print(pl)
 @ 
-\caption{How dichotomous data is converted into continuous data conditional on examinee skill.}
+\caption{Dichotomous data converted into continuous data conditional on examinee skill.}
 \label{fig:item-model}
 \end{wrapfigure}
 
@@ -141,6 +141,15 @@ The optimization algorithm can make a rough estimate
 of examinee skill, proceed to improve the model,
 and repeat this process until change is less than some epsilon.
 
+\begin{wrapfigure}[20]{r}{0.5\textwidth}
+\includegraphics[width=0.48\textwidth]{ss14}
+\caption{Item model explorer with the dichotomous model selected.
+  The upper plot exhibits the model predicted chance of
+outcomes conditional on the latent trait (theta). The lower plot exhibits the
+theoretical item information conditional on the latent trait.}
+\label{fig:ime}
+\end{wrapfigure}
+
 To further inform your intuition about item models,
 it can be helpful to place yourself in the position
 of the optimization algorithm.
@@ -151,12 +160,6 @@ but \pkg{RStudio} makes everything easier so
 we recommend using \pkg{RStudio}.
 Note that the port number (\verb\3726\ printed below) may be different on your computer.
 
-\begin{wrapfigure}{r}{0.5\textwidth}
-\includegraphics[width=0.48\textwidth]{ss14}
-\caption{Item model explorer.}
-\label{fig:ime}
-\end{wrapfigure}
-
 \begin{example}
 library(ifaTools)
 itemModelExplorer()
@@ -166,6 +169,67 @@ Listening on http://127.0.0.1:3726
 
 Your browser should show a screen similar to Figure~\ref{fig:ime}.
 Try experimenting with all the controls.
+Early in the development of item models,
+model parameters closely corresponded to the psychological
+concepts of \emph{difficulty} and \emph{discrimination} \citep{birnbaum1968}.
+For example,
+difficult items are only answered correctly by the brightest examinees
+while most examinees may correctly answer easy items.
+\emph{Discrimination} quantifies how much we learn
+from a given response.
+Well-designed items discriminate examinee skill.
+The causes of poor item discrimination are many.
+The item may be hurt by awkward wording,
+by asking examinees something that is somewhat off-topic,
+or by asking the same question in slightly different ways.
+
+Some item model parameters still retain a close connection
+to difficulty and discrimination.
+For example, the dichotomous model's $a$ parameter corresponds
+with discrimination and the negative $b$ parameter divided by $a$
+corresponds with difficulty.
+However, as item models have grown more flexible,
+parameter values and intuitive psychological
+interpretation has become more distant.
+To understand item models in general,
+it is helpful to plot category curves and information
+by the latent trait (Figure~\ref{fig:ime}).
+
+The way to interpret these plots is to start by picking a value for
+the latent trait.
+Suppose we know that examinee Alice has a latent ability of 2 logit units.
+If we trace across the plot where the x~axis is 2 then
+we find that Alice has a 75\% chance of getting the item correct (blue curve) and
+a 25\% chance of getting it incorrect (red curve).
+In addition, we find that this item will give us 0.05 units of
+information about Alice (black curve).
+The difficulty of the item is where the correct and incorrect
+curves cross at about 0.2 logits.
+The discrimination of the item is given by the information plot.
+This item provides more information about examinees with latent
+skill between -1 and 2 than elsewhere on the skill continuum.
+
+Much can be gleaned about item models by inspection of these plots.
+However, it is worth conveying a few additional details specific to
+particular item models.
+The dichotomous model's $g$ and $u$ asymptote parameters are in logit units.
+To transform these values back into probabilities use R's \code{plogis} function.
+Refer to \citet{loken2010} for a detailed discussion of the psychological meaning
+of $g$ and $u$.
+By default, the nominal model uses \emph{trend} for
+the \verb\T.a\ and \verb\T.c\ matrices.
+This parameterization is also known as the Fourier basis.
+The effect is that the \verb\alf\ and \verb\gam\ parameters control
+the lowest frequency variation to the highest frequency variation.
+To develop an intuition for how this works,
+set all parameters to zero then set \verb\a\, \verb\alf1\ and \verb\gam2\ to 1.
+Experiment with the \verb\gam\ parameters before you experiment with
+the \verb\alf\ parameters.
+Refer to \citet{thissen2010} for discussion of the possibilities
+of this item model.
+Custom \verb\T.a\ and \verb\T.c\ matrices are not available in the model
+explorer app, but can be specified in R code.
+
 The \verb\Show/Edit parameters\ checkbox has a special didactic purpose.
 Open two copies of the item model explorer.
 On one copy, un-check the \verb\Show/Edit parameters\ checkbox
@@ -203,6 +267,12 @@ modelBuilder()
 Listening on http://127.0.0.1:3726
 \end{example}
 
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[width=0.48\textwidth]{ss02}
+\caption{After loading the g341-19.csv data.}
+\label{fig:g341-19-part1}
+\end{wrapfigure}
+
 Your browser should show a screen similar to Figure~\ref{fig:start-screen}.
 Take care not to hit the \verb\Reload\ button because that will
 reset the app.
@@ -218,12 +288,6 @@ browse to \url{http://youtu.be/xHeb5_CWnCk} for dichotomous data
 and \url{http://youtu.be/iwtpleltteQ} for polytomous data.
 
 \section{Dichotomous data}\label{sec:dichotomous}
-
-\begin{wrapfigure}{r}{0.5\textwidth}
-\includegraphics[width=0.48\textwidth]{ss02}
-\caption{After loading the g341-19.csv data.}
-\label{fig:g341-19-part1}
-\end{wrapfigure}
 
 Click on the \verb\Choose File\ button\footnote{It may read \code{Choose CSV File}.
 The exact appearance may differ on your system.} and select \verb\g341-19.csv\,
@@ -463,6 +527,11 @@ with the mode of the prior set to the expected guessed-correct probability.
 This is easily accomplished by dragging the \verb\Prior mode\ slider
 and clicking the \verb\Set\ button.
 Let us imagine that these items had 4 alternatives.
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[width=0.48\textwidth]{ss09}
+\caption{Item tables after setting up our model.}
+\label{fig:g341-19-part8}
+\end{wrapfigure}
 Select \verb\g\ from the \verb\Parameter\ selector,
 move the \verb\Prior mode\ slider to 4, and click the nearby \verb\Set\ button.
 Two tables will change.
@@ -471,11 +540,6 @@ be assigned a unique label.
 This is necessary because Bayesian priors are associated with labels,
 not with particular parameters.
 In addition,
-\begin{wrapfigure}{r}{0.5\textwidth}
-\includegraphics[width=0.48\textwidth]{ss09}
-\caption{Item tables after setting up our model.}
-\label{fig:g341-19-part8}
-\end{wrapfigure}
 the \verb\Bayesian prior mode\ table will show $\logit(1/4)$ in the \verb\g\ row.
 The logit reflects that the parameter is estimated on the logit scale,
 but it is much easier for humans to understand a probability expressed as a fraction
@@ -760,9 +824,8 @@ but the optimum (line~\ref{e2:fit}) should be the same to within $10^{-2}$.
 If you do not reach the same solution,
 try again with different starting values.
 At the time of writing, optimization is faster on multicore CPUs
-with the OpenMP shared memory multiprocessing extension enabled
-on non-Microsoft Windows operating systems.
-As soon as Windows supports the OpenMP then we expect performance
+running on operating systems other than Microsoft Windows.
+As soon as Windows supports OpenMP then we expect performance
 differences between operating systems to narrow.
 
 The function \verb\as.IFAgroup\ (line~\ref{e1:ifagroup}) is a bridge
@@ -865,8 +928,8 @@ Table~\ref{tab:ld} is also a good example of a weakness
 of comparing expected and observed frequencies:
 all you can know is that \emph{something} is suboptimal,
 but not specifically what.
-The local dependence is most severe between items V1-V6
-and V7-V12, however, it is not clear why.
+The local dependence is most severe between items
+V7-V12, however, it is not clear why.
 Understanding how to improve the model (or the items)
 often requires guesswork and trial-and-error.
 
@@ -884,6 +947,15 @@ tbl <- t(sapply(sfit, function(r) c(n=r$n, df=r$df, stat=r$statistic, pval=r$pva
 print(xtable(tbl, paste0('Sum-score item-wise fit'), 'tab:sitemfit'))
 @ 
 
+\begin{wrapfigure}{r}{0.5\textwidth}
+<<fig.height=2.5>>=
+map1 <- itemResponseMap(m1Grp, factor=1)
+ggplot(map1, aes(x=score, y=item, label=outcome)) +
+  geom_text(size=4, position=position_jitter(h=.25))
+@ 
+\caption{Item outcome by average latent score.}
+\label{fig:itemMap}
+\end{wrapfigure}
 Sum-score item fit is another tool for model assessment \citep{orlando2000,kang2008}.
 Each item is tested against the null hypothesis
 that the other items accurately predict the outcome of the item of interest (Table~\ref{tab:sitemfit}).
@@ -903,16 +975,6 @@ ggplot(map1, aes(x=score, y=item, label=outcome)) +
   geom_text(size=4, position=position_jitter(h=.25))
 ```
 \end{lstlisting}
-
-\begin{wrapfigure}{r}{0.5\textwidth}
-<<fig.height=2.5>>=
-map1 <- itemResponseMap(m1Grp, factor=1)
-ggplot(map1, aes(x=score, y=item, label=outcome)) +
-  geom_text(size=4, position=position_jitter(h=.25))
-@ 
-\caption{Item outcome by average latent score.}
-\label{fig:itemMap}
-\end{wrapfigure}
 
 An item response map is a crude tool for diagnosing certain
 model misspecifications (Figure~\ref{fig:itemMap}).
@@ -1018,7 +1080,7 @@ Since many things are common between dichotomous and polytomous items,
 we will move quickly through the process of model set up
 and result interpretation.
 Click on the \verb\Choose File\ button and select \verb\preschool.csv\,
-a data set from \citet{thissen1988} that is available as an online supplement to this article.
+a data set from \citet{thissen1988} available as an online supplement.
 Click the \verb\Row names?\ checkbox in the control panel
 to disable row names.
 The format of these data are closer to what
@@ -1032,12 +1094,6 @@ These data are compressed;
 only unique rows are provided with frequency counts.
 To instruct the model builder to interpret the \verb\freq\ column as frequency counts,
 select \verb\freq\ from the \verb\Row frequency column\ selector (Figure~\ref{fig:preschool-part1}).
-
-\begin{wrapfigure}{r}{0.5\textwidth}
-\includegraphics[width=0.48\textwidth]{ss12}
-\caption{Outcomes renamed and reordered.}
-\label{fig:preschool-part2}
-\end{wrapfigure}
 
 This data set is from a preschool test of numerical knowledge.
 Each item is actually a combination of 2 dichotomous items.
@@ -1061,11 +1117,18 @@ In principle, the basis matrices can take any pattern,
 but the model builder app is limited to a Fourier basis (a.k.a. trend basis) for the $T_a$ matrix
 and a small number of options for the $T_c$ matrix.
 
-\begin{wrapfigure}{r}{0.5\textwidth}
-\includegraphics[width=0.48\textwidth]{ss13}
+\begin{figure}[t]
+\begin{minipage}[t]{0.475\linewidth}
+\includegraphics[width=\textwidth]{ss12}
+\caption{Outcomes renamed and reordered.}
+\label{fig:preschool-part2}
+\end{minipage}
+\begin{minipage}[t]{0.475\linewidth}
+\includegraphics[width=\textwidth]{ss13}
 \caption{Item model and parameter configuration with equality constraints.}
 \label{fig:preschool-part3}
-\end{wrapfigure}
+\end{minipage}
+\end{figure}
 
 With $T_a$ set to the trend basis,
 we cannot free both \verb\math\ and \verb\alf1\ because
@@ -1286,7 +1349,9 @@ ggplot(map1, aes(x=score, y=item, label=outcome)) +
 Although the outcomes are not strictly ordered for \verb\Identify\ in
 the item outcome map (Figure~\ref{fig:preschool-itemmap}),
 other measures of model fit look reasonable.
-The sum-score item fit tests are not statistically significant (Table~\ref{tab:e3-sitemfit}).
+The sum-score item fit tests are not statistically
+significant at the 0.01 level (Table~\ref{tab:e3-sitemfit}).
+This indicates good item-level fit.
 Since we requested a saturated and independence model (\verb\mxRefModels\; line~\ref{e3:refModels}),
 CFI, TLI, and RMSEA are available in the \pkg{OpenMx} summary
 and suggest adequate model fit.
@@ -1492,6 +1557,11 @@ This may be construed as a disadvantage,
 but we argue that keeping the app as simple as possible
 is important for newcomers to IFA.
 Learning \pkg{OpenMx} can be a daunting prospect.
+
+\pkg{OpenMx}, \pkg{rpf}, and \pkg{ifaTools} are free and open-source software.
+The source code is available for
+everybody to view, modify, and use.
+If you find this software useful, we hope you will cite us in your publications.
 
 \bibliography{pritikin}
 
