@@ -142,7 +142,7 @@ itemResponseMap <- function(grp, ..., factor=1) {
                                          score=mean(grp$score[mask, factor], na.rm=TRUE)))
     }
   }
-  subset(result, is.finite(score))
+  result[is.finite(result$score),]
 }
 
 #' Plot item information in the latent distribution
