@@ -24,6 +24,7 @@ shinyUI(pageWithSidebar(
     )
   ),
   mainPanel(
-    plotOutput('plot1')
+    plotOutput('plot1'),
+    plotOutput('info')
   )
 ))

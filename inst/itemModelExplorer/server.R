@@ -125,9 +125,23 @@ shinyServer(function(input, output, session) {
     grid2 <- melt(grid, id.vars=c("theta"), variable.name="category", value.name="p")
     
     ggplot(grid2, aes(theta, p, color=category)) + geom_line() +
-      ylim(0,1) + xlim(-width, width)
+      ylim(0,1) + xlim(-width, width)  + theme(legend.position="none")
   })
   
+  output$info <- renderPlot({
+    width <- 4
+    grid <- expand.grid(theta=seq(-width,width,.1))
+    trace <- try(rpf.info(state$spec, state$par, t(grid$theta)), silent = TRUE)
+    if (inherits(trace, "try-error") || any(is.na(trace))) {
+      pl <- ggplot(grid, aes(theta, 0)) + geom_line() + ylim(0,1) +
+        geom_text(label="Invalid parameters", y=.5, x=0, size=14, color="red")
+      return(pl)
+    }
+    grid <- cbind(grid, information=trace)
+    
+    ggplot(grid, aes(theta, information)) + geom_line() +
+      xlim(-width, width)
+  })
 })
 
 # runApp('.',display.mode="showcase")
