@@ -13,6 +13,10 @@ itemResponseMap(grp, ..., factor = 1)
 
 \item{factor}{which factor to plot (defaults to 1)}
 }
+\value{
+A data.frame of the raw data backing the plot. Item outcomes
+without any observations are omitted.
+}
 \description{
 Categories are placed at the mean score of the examinees who picked
 that category.
