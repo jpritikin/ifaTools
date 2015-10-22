@@ -30,6 +30,7 @@ suppressPackageStartupMessages(library(grid))
 suppressPackageStartupMessages(library(gridExtra))
 suppressPackageStartupMessages(library(ggplot2))
 suppressPackageStartupMessages(library(plyr))
+source('plotTwoFactors.R')
 @ 
 
 \pkg{OpenMx}, a modular package originally designed for
@@ -515,23 +516,37 @@ and the corresponding \verb\Is free\ row should change from \verb\TRUE\ to \verb
 With this constraint,
 the 4PL dichotomous response model is equivalent to the 3PL model \citep{birnbaum1968}.
 
-The pseudo-guessing lower bound \verb\g\ represents the chance
-that an examinee will get the item correct by guessing.
-Typically, the expected guessed-correct probability for a 3-alternative item
-is $\frac{1}{3}$ and $\frac{1}{n}$ for an $n$-alternative item.
-Estimating the lower bound from data without knowing how
-many alternatives were presented to the examinee typically
-requires much more data than is required to estimate other parameters.
-A Bayesian prior is often used on the lower bound
-with the mode of the prior set to the expected guessed-correct probability.
-This is easily accomplished by dragging the \verb\Prior mode\ slider
-and clicking the \verb\Set\ button.
-Let us imagine that these items had 4 alternatives.
 \begin{wrapfigure}{r}{0.5\textwidth}
 \includegraphics[width=0.48\textwidth]{ss09}
 \caption{Item tables after setting up our model.}
 \label{fig:g341-19-part8}
 \end{wrapfigure}
+The pseudo-guessing lower bound \verb\g\ represents the chance
+that an examinee will get the item correct by guessing.
+Typically, the expected guessed-correct probability for a 3-alternative item
+is $\frac{1}{3}$ and $\frac{1}{n}$ for an $n$-alternative item.
+Estimating the lower bound from data without telling the model a~priori how
+many alternatives were presented typically
+requires much more data than is required to estimate other kinds of parameters.
+This is especially true for easy items because few participants will need to guess.
+It could be argued that easy items should have the lower bound
+set to a probability of zero.
+However, in an item set with some lower bounds fixed to zero and some free,
+the items with the lower bounds fixed to zero will provide more
+information than the items that take the chance of guessing into account.
+Therefore, we suggest fixing the lower bound to $\frac{1}{n}$ for an $n$-alternative item
+when estimation of the lower bound is not of interest.
+
+As a compromise between fixing and freeing,
+a Bayesian prior can be used
+with the mode of the prior set to the expected probability.
+The prior ensures that a parameter will converge even
+when there is not enough data to estimate it,
+but at the same time,
+the model retains some flexibility to adapt to unexpected data.
+To set a prior, drag the \verb\Prior mode\ slider
+and click the \verb\Set\ button.
+Let us imagine that these items had 4 alternatives.
 Select \verb\g\ from the \verb\Parameter\ selector,
 move the \verb\Prior mode\ slider to 4, and click the nearby \verb\Set\ button.
 Two tables will change.
@@ -947,7 +962,7 @@ tbl <- t(sapply(sfit, function(r) c(n=r$n, df=r$df, stat=r$statistic, pval=r$pva
 print(xtable(tbl, paste0('Sum-score item-wise fit'), 'tab:sitemfit'))
 @ 
 
-\begin{wrapfigure}{r}{0.5\textwidth}
+\begin{wrapfigure}[10]{r}{0.5\textwidth}
 <<fig.height=2.5>>=
 map1 <- itemResponseMap(m1Grp, factor=1)
 ggplot(map1, aes(x=score, y=item, label=outcome)) +
@@ -1015,6 +1030,15 @@ for (px in 1:length(pl)) {
 }
 \end{lstlisting}
 
+\begin{wrapfigure}[10]{r}{0.5\textwidth}
+<<fig.height=3>>=
+basis <- rep(0, length(factors))
+basis[1] <- 1
+plotInformation(m1Grp, width=5, basis=basis)
+@ 
+\caption{Item information by latent score.}
+\label{fig:info}
+\end{wrapfigure}
 The same ingredients that go into the production of Table~\ref{tab:sitemfit}
 can also be plotted (Figure~\ref{fig:sitemplot}).
 This plot is similar to an item characteristic curve plot (Figure~\ref{fig:iccplot}).
@@ -1032,16 +1056,6 @@ basis[1] <- 1
 plotInformation(m1Grp, width=5, basis=basis)
 ```
 \end{lstlisting}
-
-\begin{wrapfigure}{r}{0.5\textwidth}
-<<fig.height=3>>=
-basis <- rep(0, length(factors))
-basis[1] <- 1
-plotInformation(m1Grp, width=5, basis=basis)
-@ 
-\caption{Item information by latent score.}
-\label{fig:info}
-\end{wrapfigure}
 
 Figure~\ref{fig:info} exhibits item information by latent score.
 Similar to \verb\iccPlot\, this plot requires the selection of a basis vector
@@ -1062,7 +1076,7 @@ summary(m1Fit)
 summary(m1Fit)
 @ 
 
-Exhibited is the \pkg{OpenMx} provided summary of model fit.
+Exhibited above is the \pkg{OpenMx} provided summary of model fit.
 IFA models are exponential family models so we obtain AIC and BIC.
 More fit statistics are available if we provide
 the saturated and independence reference models.
@@ -1473,48 +1487,33 @@ a single factor model without the slope constraint
 because these models are not nested.
 However, we can make a number of similar comparisons.
 
-<<cache=TRUE,echo=TRUE>>=
-container2 <- container
-container2$itemModel$item$labels['ability',] <- NA
-m3 <- addExploratoryFactors(container2, 0)
-m3 <- mxRun(m3, silent=TRUE)
-mxCompare(m3,m1)
-@ 
-
 We find that there is a dramatic improvement in fit whether we
 relax the constraint on items 7-12 or we add another factor.
 Without knowing more about how the data was collected,
 parsimony favors a single factor model without constraints on the
 slopes.
 We can further check this idea by comparison
-of two factor models with and without the slope constraint.
+of two factor models with and without the slope constraint (Figure~\ref{fig:twofactors}).
 
+\begin{figure}
 <<fig.height=3,cache=TRUE,echo=TRUE>>=
-plotTwoFactors <- function(slope) {
-  lvm <- varimax(toFactorLoading(slope))$loadings
-  if (any(abs(lvm[lvm<0]) > .001)) stop("Got negative loadings")
-  lvm[lvm<0] <- 0
-  df <- as.data.frame(lvm[,1:2])
-  df$name <- rownames(df)
-  pl <- ggplot(df, aes_string(x=rownames(slope)[1],
-                              y=rownames(slope)[2], label="name")) + geom_text()
-  pm <- promax(lvm[,1:2])$rotmat
-  for (dx in 1:ncol(pm)) {
-    d1 <- .5 * pm[,dx] / sqrt(sum(pm[,dx]^2))
-    pl <- pl + geom_segment(x=.5, y=.5, xend=d1[1] + .5, yend=d1[2] + .5,
-                            arrow = arrow(length = unit(.5,"cm")))
-  }
-  pl + xlim(0,1) + ylim(0,1)
-}
+container2 <- container
+container2$itemModel$item$labels['ability',] <- NA
+m3 <- addExploratoryFactors(container2, 0)
+m3 <- mxRun(m3, silent=TRUE)
+mxCompare(m3,m1)
 
 m4 <- addExploratoryFactors(container2, 1)
 m4 <- mxRun(m4, silent=TRUE)
+mxCompare(m4,m2)
 
 grid.arrange(plotTwoFactors(m2$itemModel$item$values[1:2,]) + labs(title="a."),
              plotTwoFactors(m4$itemModel$item$values[1:2,]) + labs(title="b."), ncol=2)
-
-mxCompare(m4,m2)
 @
+\caption{Factor loadings for items with (a) and without (b) the slope constraint.
+  The code for \code{plotTwoFactors} is given in the Appendix.}
+\label{fig:twofactors}
+\end{figure}
 
 A $p$-value of 0.013 is statistically significant
 at the customary 0.05 level,
@@ -1525,8 +1524,6 @@ We conclude that there is no difference between these models.
 For two factor models,
 it can be helpful to plot item factor loadings after a varimax rotation
 and then superimpose promax axes \citep[p.~265]{bock1988}.
-The \verb\plotTwoFactors\ function implements this plot and
-both models are plotted above.
 In both plots, the promax axes are separated by an angle close to $\pi$ radians,
 suggesting a single latent factor.
 The slight differences between plots (a) and (b) are
@@ -1539,9 +1536,10 @@ Model optimization time becomes an uncomfortable hindrance to
 experimentation.
 An optimization algorithm better suited to
 many latent factors is known but not yet implemented in \pkg{OpenMx} \citep{cai2010b}.
-The model builder offer as many as five factors because,
+The model builder offers as many as five factors because,
 as long as the secondary factors are disjoint (not general factors),
 they count as a single factor with respect to estimation time \citep{cai2010}.
+One important use for secondary factors is to account for local dependence \citep{demars2006}.
 
 \section{Discussion}
 
@@ -1557,11 +1555,20 @@ This may be construed as a disadvantage,
 but we argue that keeping the app as simple as possible
 is important for newcomers to IFA.
 Learning \pkg{OpenMx} can be a daunting prospect.
-
-\pkg{OpenMx}, \pkg{rpf}, and \pkg{ifaTools} are free and open-source software.
+\pkg{OpenMx}, \pkg{rpf}, and \pkg{ifaTools} are free software.
 The source code is available for
 everybody to view, modify, and use.
 If you find this software useful, we hope you will cite us in your publications.
+
+\appendix
+
+\section{Appendix}
+
+Factors are plotted in a coordinate system determined by a varimax
+rotation (line~\ref{e4:varimax}).
+Promax axes are superimposed (line~\ref{e4:promax}).
+
+\lstinputlisting{plotTwoFactors.R}
 
 \bibliography{pritikin}
 

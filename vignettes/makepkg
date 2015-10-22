@@ -3,7 +3,7 @@
 name=$(date +%Y%m%d)
 rm -rf $name
 mkdir $name
-cp pritikin-schmidt.Rnw pritikin-schmidt.tex pritikin.bib quad.rda *.csv $name/
+cp pritikin-schmidt.Rnw pritikin-schmidt.tex pritikin.bib quad.rda plotTwoFactors.R *.csv $name/
 cp *.png $name/
 cp RJwrapper.tex $name/
 #cp RJournal.sty $name/  # only for testing
