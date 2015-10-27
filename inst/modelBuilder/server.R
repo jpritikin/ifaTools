@@ -197,7 +197,7 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
                         as.character(rawData$loadDemo)), collapse="\n")
   } else {
     loadData <- c("# Adjust the path in the next statement to load your data\n",
-                  paste0("data <- read.csv(file='",rawData$name,"'"))
+                  paste0("data <- read.csv(na.strings=c(), file='",rawData$name,"'"))
     if (!input$dataHeader) loadData <- c(loadData, ",header=FALSE")
     if (input$dataSep != ",") {
       loadData <- c(loadData, paste0(",sep='", input$dataSep, "'"))
@@ -931,7 +931,7 @@ shinyServer(function(input, output, session) {
     }
     args <- list(rawData$datapath, header=input$dataHeader,
                  sep=input$dataSep, quote=input$dataQuote,
-                 stringsAsFactors=FALSE, check.names=FALSE)
+                 stringsAsFactors=FALSE, check.names=FALSE, na.strings=c())
     
     if (input$dataRowNames) {
       args$row.names=1L
