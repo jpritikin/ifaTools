@@ -222,7 +222,7 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
 
   mker <- sapply(dcols, function(col) {
     im <- itemModel[[col]]
-    str <- c("rpf.", im$model, "(factors=numFactors")
+    str <- c("list(rpf.", im$model, "(factors=numFactors")
     if (im$model != "drm") {
       str <- c(str, ",outcomes=", im$outcomes)
     }
@@ -235,7 +235,7 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
       }
       str <- c(str, ",T.a='", im$Ta, "', T.c=", tc)
     }
-    paste0(c(str, ")"), collapse="")
+    paste0(c(str, "))"), collapse="")
   })
 
   code <- rle(mker)

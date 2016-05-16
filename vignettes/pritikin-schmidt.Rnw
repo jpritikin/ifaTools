@@ -782,8 +782,8 @@ colnames(data) <- mxMakeNames(colnames(data), unique = TRUE) ## \label{e1:colnam
 factors <- "ability"  ## \label{e1:factor1}
 numFactors <- length(factors)
 spec <- list()
-spec[1:6] <- rpf.drm(factors = numFactors)
-spec[7:12] <- rpf.grm(factors = numFactors, outcomes = 2)  ## \label{e1:factor2}
+spec[1:6] <- list(rpf.drm(factors = numFactors))
+spec[7:12] <- list(rpf.grm(factors = numFactors, outcomes = 2))  ## \label{e1:factor2}
 names(spec) <- c("V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9", "V10", 
   "V11", "V12")
 
@@ -862,8 +862,8 @@ colnames(data) <- mxMakeNames(colnames(data), unique=TRUE)
 factors <- "ability"
 numFactors <- length(factors)
 spec <- list()
-spec[1:6] <- rpf.drm(factors=numFactors)
-spec[7:12] <- rpf.grm(factors=numFactors, outcomes=2)
+spec[1:6] <- list(rpf.drm(factors=numFactors))
+spec[7:12] <- list(rpf.grm(factors=numFactors, outcomes=2))
 names(spec) <- c("V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9", "V10", 
   "V11", "V12")
 
@@ -1347,7 +1347,7 @@ data[['freq']] <- as.numeric(data[['freq']])
 factors <- "math"
 numFactors <- length(factors)
 spec <- list()
-spec[1:2] <- rpf.nrm(factors = numFactors, outcomes = 4,T.a = 'trend', T.c = 'trend')
+spec[1:2] <- list(rpf.nrm(factors = numFactors, outcomes = 4,T.a = 'trend', T.c = 'trend'))
 names(spec) <- c("Match", "Identify")
 
 missingColumns <- which(is.na(match(names(spec), colnames(data))))
@@ -1417,8 +1417,8 @@ data[['freq']] <- as.numeric(data[['freq']]) ## \label{e3:freq}
 factors <- "math"
 numFactors <- length(factors)
 spec <- list()
-spec[1:2] <- rpf.nrm(factors = numFactors, outcomes = 4,
-  T.a = 'trend', T.c = 'trend') ## \label{e3:nominal}
+spec[1:2] <- list(rpf.nrm(factors = numFactors, outcomes = 4,
+  T.a = 'trend', T.c = 'trend')) ## \label{e3:nominal}
 names(spec) <- c("Match", "Identify")
 
 missingColumns <- which(is.na(match(names(spec), colnames(data))))
