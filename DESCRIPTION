@@ -14,7 +14,10 @@ Imports:
 Suggests:
     testthat,
     roxygen2,
-    knitr (>= 1.8)
+    knitr (>= 1.8),
+    gridExtra,
+    plyr,
+    xtable
 Depends:
     shiny (>= 0.10),
     ggplot2,

@@ -1,3 +1,6 @@
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{Model Builder for Item Factor Analysis with OpenMx}
+%\VignetteDepends{gridExtra, plyr, xtable}
 \documentclass[a4paper]{report}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -25,8 +28,8 @@
 }
 \makeatother
 
-\newenvironment{kframe}{}{}
-\newenvironment{knitrout}{}{}
+%\newenvironment{kframe}{}{}
+%\newenvironment{knitrout}{}{}
 \definecolor{fgcolor}{rgb}{0.345, 0.345, 0.345}
 
 \usepackage{alltt}
