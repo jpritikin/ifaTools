@@ -16,4 +16,4 @@ git archive --format=tar HEAD | (cd staging; tar -xf -)
 cd staging
 
 ./util/rox
-R CMD build .
+GS_QUALITY=ebook R CMD build --compact-vignettes=both .
