@@ -495,8 +495,8 @@ factors (`r ifelse(length(factors), factors, '-')`), -2LL=$`r m1Fit$output$fit`$
     "",
     "```{r,fig.height=2}
 got <- sumScoreEAPTest(m1Grp)
-df <- data.frame(score=as.numeric(names(got$observed)),
-            expected=got$expected, observed=got$observed)
+df <- data.frame(score=as.numeric(names(got[['observed']])),
+            expected=got[['expected']], observed=got[['observed']])
 df <- melt(df, id='score', variable.name='source', value.name='n')
 ggplot(df, aes(x=score, y=n, color=source)) + geom_line()
 ```",
