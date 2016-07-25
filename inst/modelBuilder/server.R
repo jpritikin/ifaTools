@@ -384,7 +384,7 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
   
   getRefModels <- ""
   if (input$fitReferenceModels) {
-    getRefModels <- ", refModels=mxRefModels(m1Fit, run = TRUE)"
+    getRefModels <- ", refModels=mxRefModels(itemModel, run = TRUE)"
   }
   
   emArgs <- paste0("'itemModel.expectation', 'scores',
