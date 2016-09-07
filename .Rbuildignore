@@ -6,6 +6,7 @@
 ^vignettes/*.html
 ^vignettes/*.md
 ^vignettes/figure
+^vignettes/mk
 ^util/
 ^staging
 .dir-locals.el

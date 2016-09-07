@@ -37,11 +37,12 @@
 \begin{document}
 
 %% do not edit, for illustration only
-\sectionhead{Contributed research article}
-\volume{XX}
-\volnumber{YY}
-\year{20ZZ}
-\month{AAAA}
+\sectionhead{Contributed Research Articles}
+\setcounter{page}{182}
+\volume{8}
+\volnumber{1}
+\year{2016}
+\month{August}
 
 \begin{article}
 
@@ -59,7 +60,7 @@ the construction of Item Factor Analysis (a.k.a.\ Item Response Theory) models
 using the \pkg{OpenMx} package.
 The web application assists with importing data,
 outcome recoding, and model specification.
-However, the app does not conduct any analysis but generates an analysis script.
+However, the app does not conduct any analysis but, rather, generates an analysis script.
 Generated Rmarkdown output serves dual purposes:
 to analyze a data set and demonstrate good programming practices.
 The app can be used as a teaching tool or as a starting
@@ -167,14 +168,14 @@ The dichotomous response probability function can model items
 when there are exactly two possible outcomes. It is defined as,
 %
 \begin{align}
-\Prob(\pick=0| a,b,g,u,\tau) &= 1- \Prob(\pick=1| a,b,g,\tau) \\ \label{eqn:dichotomous}
+\Prob(\pick=0| a,b,g,u,\tau) &= 1- \Prob(\pick=1| a,b,g,u,\tau) \\ \label{eqn:dichotomous}
 \Prob(\pick=1| a,b,g,u,\tau) &= \logit^{-1}(g)+(\logit^{-1}(u)-\logit^{-1}(g))\frac{1}{1+\exp(-( a\tau + b))}
 \end{align}
 where $a$ is the slope, $b$ is the intercept,
 $g$ is the pseudo-guessing lower asymptote expressed in logit units,
 $u$ is the upper asymptote expressed in logit units,
 and $\tau$ is the latent ability of the examinee \citep{birnbaum1968,loken2010}.
-A \emph{\#PL} naming shorthand has developed to refer to versions of the dichotomous
+A \emph{\#PL} naming shorthand has been developed to refer to versions of the dichotomous
 model with different numbers of free parameters.
 Model $n$PL refers to the model obtained by freeing the
 first $n$ of parameters $b$, $a$, $g$, and $u$.
@@ -187,9 +188,9 @@ For outcomes k in 0 to K, slope vector $a$, intercept vector $b$,
 and latent ability vector $\tau$, it is defined as,
 %
 \begin{align}
-\Prob(\pick=0| a,  b,\tau) &= 1- \Prob(\pick=1| a,b_1,\tau) \\
+\Prob(\pick=K| a,  b,\tau) &= \frac{1}{1+\exp(-( a\tau + b_K))} \\
 \Prob(\pick=k| a,  b,\tau) &= \frac{1}{1+\exp(-( a\tau + b_k))} - \frac{1}{1+\exp(-( a\tau + b_{k+1}))} \\
-\Prob(\pick=K| a,  b,\tau) &= \frac{1}{1+\exp(-( a\tau + b_K))}.
+\Prob(\pick=0| a,  b,\tau) &= 1- \Prob(\pick=1| a,b_1,\tau).
 \end{align}
 
 \subsection{Nominal model}
@@ -334,7 +335,7 @@ The difficulty of the item is where the correct and incorrect
 curves cross at about 0.2 logits.
 The discrimination of the item is given by the information plot.
 This item provides more information about examinees with latent
-skill between -1 and 2 than elsewhere on the skill continuum.
+skill between $-1$ and 2 than elsewhere on the skill continuum.
 
 Much can be gleaned about item models by inspection of these plots.
 However, it is worth conveying a few additional details specific to
@@ -364,15 +365,15 @@ of this item model.
 Custom \verb\T.a\ and \verb\T.c\ matrices are not available in the model
 explorer app, but can be specified in R code.
 
-The \verb\Show/Edit parameters\ checkbox has a special didactic purpose.
+The ``\verb\Show/Edit parameters\'' checkbox has a special didactic purpose.
 Open two copies of the item model explorer.
-On one copy, un-check the \verb\Show/Edit parameters\ checkbox
-to hide the parameters and click the \verb\Draw new parameters\ button.
+On one copy, un-check the ``\verb\Show/Edit parameters\'' checkbox
+to hide the parameters and click the ``\verb\Draw new parameters\'' button.
 On the second copy of the item model explorer,
 adjust the item model parameters to try to match the
 plot produced on the first item model explorer.
 You can check your answers by checking
-the \verb\Show/Edit parameters\ checkbox.
+the ``\verb\Show/Edit parameters\'' checkbox.
 When you play this game,
 you are doing part of what the optimization algorithm
 does when it fits models to data.
@@ -424,18 +425,18 @@ and \url{http://youtu.be/iwtpleltteQ} for polytomous data.
 
 \section{Dichotomous data}\label{sec:dichotomous}
 
-Click on the \verb\Choose File\ button\footnote{It may read \code{Choose CSV File}.
+Click on the ``\verb\Choose File\'' button\footnote{It may read ``\code{Choose CSV File.}''
 The exact appearance may differ on your system.} and select \verb\g341-19.csv\,
 a dichotomous data set that is available in the \CRANpkg{ifaTools} package \citep{ifatools}.
-The first 6 lines will appear in the \verb\Unparsed content\ section
+The first 6 lines will appear in the ``\verb\Unparsed content\'' section
 (see Figure~\ref{fig:g341-19-part1}).\footnote{We are aware that these screenshots
 are illegible when printed on paper.
 Inspect them using magnification on your computer.}
 This makes it easy to see how the file is formatted.
-The \verb\Parsed content\ section reports an error.
+The ``\verb\Parsed content\'' section reports an error.
 By reading the error carefully,
 you will find mention that ``duplicate `row.names' are not allowed.''
-Since \verb\Row names?\ is enabled in the control panel,
+Since ``\verb\Row names?\'' is enabled in the control panel,
 the model builder app expects the first column of data to be dedicated to row names.
 A row name is typically the examinee's name or numeric identifier.
 A glance at the unparsed content reveals that no row names have
@@ -447,30 +448,30 @@ been given in this data set.
 \label{fig:g341-19-part2}
 \end{wrapfigure}
 
-Click the \verb\Row names?\ checkbox in the control panel
+Click the ``\verb\Row names?\'' checkbox in the control panel
 to disable row names.
 Immediately (without reloading the data),
-the error message in the \verb\Parsed content\ section
+the error message in the ``\verb\Parsed content\'' section
 will be replaced by some of the data organized into a single column.
 The column name will read \verb\X010111111100\.
 A column name like that should raise suspicion.
-Since the \verb\Header?\ checkbox is enabled in the control panel,
+Since the ``\verb\Header?\'' checkbox is enabled in the control panel,
 the model builder app expects the first line of the data to contain column names.
 Therefore, the first line of data is misinterpreted.
 
-Click the \verb\Header?\ checkbox in the control panel
+Click the ``\verb\Header?\'' checkbox in the control panel
 to disable column names.
-The column in the \verb\Parsed content\ section will
+The column in the ``\verb\Parsed content\'' section will
 now be labeled \verb\V1\.
-Click on the \verb\Item summary\ as an alternate way
+Click on the ``\verb\Item summary\'' control as an alternate way
 to verify that the data is loaded and parsed accurately.
 The main content area includes two elements,
-a selection for the \verb\Row frequency column\ and
+a selection for the ``\verb\Row frequency column\'' and
 a table of items by \verb\Outcomes\ and \verb\Missing\ (see Figure~\ref{fig:g341-19-part2}).
-The \verb\Row frequency column\ is used when you have already
+The ``\verb\Row frequency column\'' selection is used when you have already
 reduced your data to unique rows and row counts.
 The example data set \verb\LSAT6\ is in this format.
-For our current data set, leave the \verb\Row frequency column\ set to $-$.
+For our current data set, leave ``\verb\Row frequency column\'' set to $-$.
 
 The information conveyed in the item table should rouse suspicion.
 There is only 1 row (or 1 item) with 721 outcomes.
@@ -483,7 +484,7 @@ we need to select \verb\Whitespace\ as the \verb\Separator\ in the control panel
 With this last error corrected,
 the table is updated with 12 items labeled V1, V2, \dots, V12 and all with 2 outcomes.
 With the data correctly loaded, click on the
-\verb\Outcomes\ tab on the top bar.
+``\verb\Outcomes\'' tab on the top bar.
 
 \begin{wrapfigure}{r}{0.5\textwidth}
 \includegraphics[width=0.48\textwidth]{ss04}
@@ -491,7 +492,7 @@ With the data correctly loaded, click on the
 \label{fig:g341-19-part3}
 \end{wrapfigure}
 
-The control panel on the \verb\Outcomes\ tab packs a lot of functionality (Figure~\ref{fig:g341-19-part3}).
+The control panel on the ``\verb\Outcomes\'' tab packs a lot of functionality (Figure~\ref{fig:g341-19-part3}).
 The first two selectors are mutually exclusive and
 permit working with all items having
 the same outcomes or with specific items, respectively.
@@ -503,15 +504,15 @@ The name ``V1'' does not just refer to the item ``V1'' but to
 all items, because all items have the same outcomes.
 
 For clarity, it is often helpful to rename outcomes.
-The \verb\Recode from\ selector should have ``0'' selected.
+The ``\verb\Recode from\'' selector should have ``0'' selected.
 Change the \verb\to\ selector to \verb\<Rename>\, enter
-``incorrect'' for the \verb\New name\, and click the
-\verb\Add mapping\ button.
+``incorrect'' for the ``\verb\New name\'' value, and click the
+``\verb\Add mapping\'' button.
 This will create a recoding rule that will show up
-in the \verb\Recode Table\ (Figure~\ref{fig:g341-19-part4}).
+in the ``\verb\Recode Table\'' output (Figure~\ref{fig:g341-19-part4}).
 Similarly, rename the ``1'' outcome to ``correct'' and
-again click the \verb\Add mapping\ button.
-At this point, you should have 2 rules in the \verb\Recode Table\.
+again click the ``\verb\Add mapping\'' button.
+At this point, you should have 2 rules in the ``\verb\Recode Table\'' output.
 
 \begin{figure}[h]
 \begin{minipage}[t]{0.475\linewidth}
@@ -523,12 +524,12 @@ In a moment, we will click the ``Add mapping'' button.}
 \hfill
 \begin{minipage}[t]{0.475\linewidth}
 \includegraphics[width=\textwidth]{ss06}
-\caption{Outcome reorder tool with 1 reordering rule.}
+\caption{The outcome reorder tool with 1 reordering rule.}
 \label{fig:g341-19-part5}
 \end{minipage}
 \end{figure}
 
-Click on the \verb\Reorder\ tab.
+Click on the ``\verb\Reorder\'' tab.
 Here you will find the outcomes sorted in lexical order.
 Drag one of the outcomes to reverse the order (as in Figure~\ref{fig:g341-19-part5}).
 Similar to the operation of renaming outcomes,
@@ -541,16 +542,16 @@ labels and standardized ordering.
 This is especially true when there are more than 2 outcomes
 to worry about.
 
-We will not use the \verb\Reverse\ tab and other control
+We will not use the ``\verb\Reverse\'' tab and other control
 panel elements in the present example.
 In survey design, it is common for outcomes to have a
 canonical order with some items reverse scored.
-The \verb\Reverse\ tab is used to reverse the outcome
+The ``\verb\Reverse\'' tab is used to reverse the outcome
 order of some subset of items without dragging the
-outcomes around with the \verb\Reorder\ tool.
+outcomes around with the ``\verb\Reorder\'' tool.
 This can save a lot of dragging when there are
 more than 2 outcomes.
-The \verb\Add outcome\ tool permits the addition
+The ``\verb\Add outcome\'' tool permits the addition
 of outcomes that are not represented in the data.
 This might happen when a measure is in development
 and we are fitting a preliminary model just to
@@ -572,11 +573,11 @@ It is straightforward to merge ``Agree somewhat'' to ``Agree'' and
 Of course, it is not always obvious which outcomes to merge.
 The recode tool can also recode an outcome to \verb\<NA>\,
 which causes that outcome to be interpreted as missing.
-Finally, the \verb\Discard\ button at the bottom of the control
+Finally, the ``\verb\Discard\'' button at the bottom of the control
 panel allows us to discard any rule that we created.
 So feel free to experiment.
 
-Click on the \verb\Model\ tab on the top bar.
+Click on the ``\verb\Model\'' tab on the top bar.
 The first decision we need to make is
 how many latent factors to include in our model (Figure~\ref{fig:g341-19-part6}).
 If we are not sure, a good starting point is 1.
@@ -594,22 +595,22 @@ start using trait1, trait2, etc.
 If you are not sure how many factors to use then use 1 for now.
 We will revisit this question later.
 
-The \verb\Reorder\ tab allows you to change the order of your items.
+The ``\verb\Reorder\'' tab allows you to change the order of your items.
 This can be helpful because of the way that item model and parameter
 editing works.
 To get familiar with how item editing works,
-click on the \verb\Parameters\ tab.
-The main content area of the \verb\Parameters\ tab contains a lot
+click on the ``\verb\Parameters\'' tab.
+The main content area of the ``\verb\Parameters\'' tab contains a lot
 of information.
 The first thing to notice is that all of the tables have the same
 column labels.
 Each item is assigned to a column.
 Using the control panel, we will focus on only a subset of items.
-Change the first selector \verb\Edit items from:\ from \verb\V1\ to \verb\V7\.
+Change the first selector ``\verb\Edit items from:\'' from \verb\V1\ to \verb\V7\.
 This will hide the first 6 items, making the tables in the main content
 area look more manageable (Figure~\ref{fig:g341-19-part7}).
 The first two selectors facilitate item range selection.
-To reveal all items again, use the \verb\Focus all items\ button.
+To reveal all items again, use the ``\verb\Focus all items\'' button.
 Item selection is important to understand because the remainder
 of the controls in the control panel operate on only the selected (visible) items.
 
@@ -622,7 +623,7 @@ of the controls in the control panel operate on only the selected (visible) item
 With only items \verb\V7\ to \verb\V12\ visible,
 just to demonstrate how it is done,
 let us place an equality constraint on the slope or latent factor loading.
-Type ``slope'' into the \verb\Label\ textbox and click the \verb\Set Label\ button.
+Type ``slope'' into the \verb\Label\ textbox and click the ``\verb\Set Label\'' button.
 The label \verb\slope\ should appear in all columns of the first row
 of the \verb\Labels\ table in the main content area.
 Now let us switch to the first 6 items.
@@ -631,9 +632,9 @@ One way is to change the first selector from \verb\V7\ to \verb\V6\
 and the second selector from \verb\V12\ to \verb\V1\.
 
 With only items \verb\V1\ to \verb\V6\ visible,
-select \verb\drm\ from the \verb\Model\ selector.
-\verb\drm\ is an abbreviation for the 4PL dichotomous response model \citep{loken2010},
-which has 4 parameters when there is 1 factor.
+select \verb\drm\ from the ``\verb\Model\'' selector.
+The value \verb\drm\ is an abbreviation for the 4PL dichotomous response model \citep{loken2010},
+which has four parameters when there is one factor.
 The \verb\g\ and \verb\u\ rows should appear in
 all of the tables in the main content area.
 Parameter \verb\g\ is the pseudo-guessing lower bound
@@ -644,10 +645,10 @@ Even high ability examinees may occasionally miss an easy item.
 Here we will fix the upper bound to 1
 (meaning that an examinee with sufficiently high ability will never answer incorrectly).
 Since the bound parameters are expressed on a logit scale, we will use $\logit(1)$.
-Select \verb\u\ from the \verb\Parameter\ selector and
-\verb\Inf\ from the \verb\Free\ selector (since $\logit(1)=\inf$).
-The row of \verb\Starting values\ for \verb\u\ should change to \verb\Inf\
-and the corresponding \verb\Is free\ row should change from \verb\TRUE\ to \verb\FALSE\.
+Select \verb\u\ from the ``\verb\Parameter\'' selector and
+\verb\Inf\ from the ``\verb\Free\'' selector (since $\logit(1)=\inf$).
+The row of ``\verb\Starting values\'' for \verb\u\ should change to \verb\Inf\
+and the corresponding ``\verb\Is free\'' row should change from \verb\TRUE\ to \verb\FALSE\.
 With this constraint,
 the 4PL dichotomous response model is equivalent to the 3PL model \citep{birnbaum1968}.
 
@@ -681,35 +682,35 @@ The prior ensures that a parameter will converge even
 when there is not enough data to estimate it,
 but at the same time,
 the model retains some flexibility to adapt to unexpected data.
-To set a prior, drag the \verb\Prior mode\ slider
-and click the \verb\Set\ button.
+To set a prior, drag the ``\verb\Prior mode\'' slider
+and click the ``\verb\Set\'' button.
 Let us imagine that these items had 4 alternatives.
 Select \verb\g\ from the \verb\Parameter\ selector,
-move the \verb\Prior mode\ slider to 4, and click the nearby \verb\Set\ button.
+move the ``\verb\Prior mode\'' slider to 4, and click the nearby \verb\Set\ button.
 Two tables will change.
 Each cell of the \verb\g\ row of the \verb\Labels\ table will
 be assigned a unique label.
 This is necessary because Bayesian priors are associated with labels,
 not with particular parameters.
 In addition,
-the \verb\Bayesian prior mode\ table will show $\logit(1/4)$ in the \verb\g\ row.
-The logit reflects that the parameter is estimated on the logit scale,
+the ``\verb\Bayesian prior mode\'' table will show $\logit(1/4)$ in the \verb\g\ row.
+The logit usage reflects that the parameter is estimated on the logit scale,
 but it is much easier for humans to understand a probability expressed as a fraction
 rather than raw logit units.
 
-We will not use the \verb\Nominal Tc\ selector for these data.
-\verb\Nominal Tc\ only applies to items with more than 2 possible
+We will not use the ``\verb\Nominal Tc\'' selector for these data.
+``\verb\Nominal Tc\'' only applies to items with more than 2 possible
 outcomes when using the nominal response model \citep{thissen2010}.
 Before proceeding,
-go ahead and click the \verb\Focus all items\ button.
+go ahead and click the ``\verb\Focus all items\'' button.
 Your screen should look like Figure~\ref{fig:g341-19-part8},
 except for different starting values.
-Click on the \verb\Exclude\ tab.
+Click on the ``\verb\Exclude\'' tab.
 This is an easy way to exclude some of the items from analysis.
-Finally, click on the \verb\Summary\ tab.
+Finally, click on the ``\verb\Summary\'' tab.
 Here you will find a summary of your model settings.
 Note that the number of outcomes may differ from the number of outcomes
-reported in the summary table found on under the \verb\Data\ top bar page
+reported in the summary table found on under the ``\verb\Data\'' top bar page
 due to recoding.
 
 \begin{wrapfigure}{r}{0.5\textwidth}
@@ -725,7 +726,7 @@ the whole exhaustive process again.
 Click \verb\Settings\ on the top bar.
 In the main content area, you will find a preview of what the
 settings file will look like.
-Click the \verb\Download\ button and move the file to a suitable
+Click the ``\verb\Download\'' button and move the file to a suitable
 location on your computer.
 
 To verify that you can reliably restore the saved settings,
@@ -748,20 +749,20 @@ click \verb\Analysis\ on the top bar.
 This screen looks and functions similarly to the \verb\Settings\ screen.
 However, the control panel offers a few options specific to
 code generation.
-The \verb\Functional form for dichotomous bound prior density\ selector
+The ``\verb\Functional form for dichotomous bound prior density\'' selector
 chooses the distributional form of the Bayesian prior.
 \verb\Logit-normal\ is the more recent scheme \citep{cai2011}.
-The \verb\Information matrix method\ is set to \verb\Oakes\ by default.
+The ``\verb\Information matrix method\'' control is set to \verb\Oakes\ by default.
 In a simulation study included with \pkg{OpenMx},
 the Oakes method \citep{oakes1999} exhibited accuracy comparable
 to central difference with Richardson extrapolation
 and time linear in the number of parameters.
-Click the \verb\Download\ button and save the \verb\Rmarkdown\ code.
+Click the ``\verb\Download\'' button and save the \verb\Rmarkdown\ code.
 The \verb\Rmarkdown\ file and your data need to be in the same directory.
 Either move the \verb\Rmarkdown\ file to your data directory,
 or alternately, you can specify a full path in the read.csv
 statement (lines \ref{e1:load1}--\ref{e1:load2}).
-Open the file in \pkg{RStudio} and click the \verb\Knit HTML\ button.
+Open the file in \pkg{RStudio} and click the ``\verb\Knit HTML\'' button.
 
 \begin{lstlisting}[name=cont]
 ---
@@ -946,7 +947,7 @@ The item \verb\mxMatrix\ (line~\ref{e1:item}) contains most of
 the information in the item tables (Figure~\ref{fig:g341-19-part8}).
 Everything goes into the \verb\container\ model (line~\ref{e1:container}).
 The model is optimized (line~\ref{e1:run}).
-Since we did not disable \verb\Show model fitting progress\
+Since we did not disable ``\verb\Show model fitting progress\''
 (reflected by \verb\verbose = 2L\ at line~\ref{e1:verbose}),
 we obtain some diagnostics upon knitting the \verb\Rmarkdown\ to HTML.
 
@@ -985,7 +986,7 @@ differences between operating systems to narrow.
 
 The function \verb\as.IFAgroup\ (line~\ref{e1:ifagroup}) is a bridge
 between \pkg{OpenMx} and \CRANpkg{rpf} \citep{pritikin2013a}.
-\pkg{rpf} is an acronym for response probability function
+The \pkg{rpf} name is an acronym for response probability function
 and contains many IFA-specific diagnostic functions.
 In addition, \pkg{rpf} can be used to analyze IFA models optimized by
 packages other than \pkg{OpenMx}.
@@ -1071,7 +1072,7 @@ print(xtable(ct$pval, paste('Log $p$-value of local dependence between item pair
       table.placement="t!")
 @ 
 
-A test of local dependence is important to examine
+A test of local dependence is important to examine,
 as it is an assumption of IFA \citep{yen1993}.
 Table~\ref{tab:ld} exhibits the log $p$-value
 of the null hypothesis that there is no local dependence between item pairs.
@@ -1250,13 +1251,13 @@ Reference models will be requested in our next example.
 Since many things are common between dichotomous and polytomous items,
 we will move quickly through the process of model set up
 and result interpretation.
-Click on the \verb\Choose File\ button and select \verb\preschool.csv\,
+Click on the ``\verb\Choose File\'' button and select \verb\preschool.csv\,
 a data set from \citet{thissen1988} available in the \pkg{ifaTools} package.
-Click the \verb\Row names?\ checkbox in the control panel
+Click the ``\verb\Row names?\'' checkbox in the control panel
 to disable row names.
 The format of these data are closer to what
 is expected by default than our first example so less fiddling is required.
-Click on the \verb\Item summary\ tab.
+Click on the ``\verb\Item summary\'' tab.
 Here it appears that there are 3 items,
 but the \verb\freq\ column is not an item.
 \verb\freq\ indicates how
@@ -1264,22 +1265,22 @@ many times a row appeared in the original data.
 These data are compressed;
 only unique rows are provided with frequency counts.
 To instruct the model builder to interpret the \verb\freq\ column as frequency counts,
-select \verb\freq\ from the \verb\Row frequency column\ selector (Figure~\ref{fig:preschool-part1}).
+select \verb\freq\ from the ``\verb\Row frequency column\'' selector (Figure~\ref{fig:preschool-part1}).
 
 This data set is from a preschool test of numerical knowledge.
 Each item is actually a combination of 2 dichotomous items.
 Similar questions were asked regarding the number 3 and the number 4
 and the pattern of responses mapped to an outcome code.
 The outcomes should be renamed with the recoding tool
-under the \verb\Outcomes\ tab on the top bar (recall Figure~\ref{fig:g341-19-part4}).
+under the ``\verb\Outcomes\'' tab on the top bar (recall Figure~\ref{fig:g341-19-part4}).
 Outcomes 0, 1, 2, and 3 should be renamed to ``neither,'' ``3 only,''
-``4 only,'' and ``both correct,'' respectively, using the Recode tab under the Outcomes top bar page.
+``4 only,'' and ``both correct,'' respectively, using the ``Recode'' tab under the Outcomes top bar page.
 After renaming, reorder the items into the correct order (Figure~\ref{fig:preschool-part2}).
 
 Click \verb\Model\ on the top bar.
-On the \verb\Factors\ tab, we will name the single latent factor ``math.''
+On the ``\verb\Factors\'' tab, we will name the single latent factor ``math.''
 Switch to the \verb\Parameters\ tab.
-Here we select \verb\nrm\ from the \verb\Model\ selector.
+Here we select \verb\nrm\ from the ``\verb\Model\'' selector.
 The acronym ``nrm'' stands for the nominal response model \citep{thissen2010}.
 This parameterization of the nominal model can accommodate
 basis matrices $T_a$ and $T_c$ to customize the meaning of the slope
@@ -1307,28 +1308,28 @@ we cannot free both \verb\math\ and \verb\alf1\ because
 they have the same effect on the model and would cause
 the model to be unidentified.
 Fix \verb\alf1\ to 1.
-Select \verb\alf1\ from the \verb\Parameter\ selector
-and select 1 from the \verb\Free\ selector.
+Select \verb\alf1\ from the ``\verb\Parameter\'' selector
+and select 1 from the ``\verb\Free\'' selector.
 Since we have worked with this data set already,
 we know a few things that can give us a more parsimonious model.
 The \verb\alf2\ parameters can be set equal
 since both items exhibit poor discrimination between
 \verb\neither\, \verb\3 only\, and \verb\4 only\ but
 good discrimination between these outcomes and \verb\both correct\.
-Select \verb\alf2\ with the \verb\Parameter\ selector
+Select \verb\alf2\ with the ``\verb\Parameter\'' selector
 and set the label to \verb\eq1\.
 Since both items are equally difficult,
 we can equate \verb\gam1\.
-Select \verb\gam1\ with the \verb\Parameter\ selector
+Select \verb\gam1\ with the ``\verb\Parameter\'' selector
 and set the label to \verb\eq2\.
 To avoid overfitting with the highest frequency basis vector,
 fix \verb\gam3\ to 0.
-Select \verb\gam3\ with the \verb\Parameter\ selector
+Select \verb\gam3\ with the ``\verb\Parameter\'' selector
 and select \verb\0\ with the \verb\Free\ selector.
 Figure~\ref{fig:preschool-part3} exhibits the final parameter settings.
 
 Click \verb\Analysis\ on the top bar.
-Ensure that \verb\Fit reference models\ is selected,
+Ensure that ``\verb\Fit reference models\'' is selected,
 and download the analysis script.
 The \verb\Rmarkdown\ file and your data need to be in the same directory.
 Either move the \verb\Rmarkdown\ file to your data directory,
@@ -1607,7 +1608,7 @@ even numbers of points.}
 \section{Rasch diagnostics}
 
 A Rasch model is obtained when
-all slope parameters are constrained equal and the variance is fixed to 1.0,
+all slope parameters are constrained to be equal and the variance is fixed to 1.0,
 or equivalently,
 all slopes are fixed to 1.0 with free variance \citep{rasch1960}.
 If your interest is Rasch models
