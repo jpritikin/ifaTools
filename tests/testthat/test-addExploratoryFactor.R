@@ -7,7 +7,7 @@ context("addExploratoryFactor")
 
 print(getwd())
 
-data <- read.csv(file='../../vignettes/g341-19.csv',
+data <- read.csv(file='g341-19.csv',
                  header=FALSE,sep='',quote="",
                  stringsAsFactors=FALSE,check.names=FALSE)
 
