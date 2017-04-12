@@ -3,6 +3,8 @@ library(rpf)
 library(ifaTools)
 library(testthat)
 
+set.seed(1)
+
 context("addExploratoryFactor")
 
 print(getwd())
