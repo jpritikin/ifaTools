@@ -22,3 +22,10 @@ itemModelExplorer <- function() {
 modelBuilder <- function() {
 	shiny::runApp(system.file('modelBuilder', package='ifaTools'))
 }
+
+.onAttach <- function(libname, pkgname) {
+	packageStartupMessage(paste(
+		"Welcome to ifaTools!\n",
+		"Use itemModelExplorer() to explore item models.\n",
+		"Use modelBuilder() to build an IFA model."))
+}
