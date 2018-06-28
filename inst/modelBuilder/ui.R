@@ -27,6 +27,7 @@ shinyUI(navbarPage(
                        'Double Quote'='"',
                        'Single Quote'="'"),
                      '"'),
+        helpText("We take care of NA strings later."),
         tags$hr(),
         helpText("Load example data"),
         actionButton("exampleDataKCT", label = "KCT"),
