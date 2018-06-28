@@ -91,7 +91,7 @@ getFactorNames <- function(input) {
 }
 
 getFocusedItems <- function(input, rawData, permuteTable) {
-  dcols <- dataColumnNames(input, rawData, permuteTable)
+  dcols <- includedColumnNames(input, rawData, permuteTable)
   range <- sort(match(c(input$focusedItemStart, input$focusedItemEnd), dcols))
   if (length(range) != 2) return(c())
   dcols[seq(range[1], range[2])]
@@ -214,7 +214,7 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
   }
   
   loadData <- c(loadData,
-                sapply(rawData$exclude, function(col) paste0("\ndata[['", col, "']] <- NULL  # excluded")))
+                sapply(permuteTable$exclude, function(col) paste0("\ndata[['", col, "']] <- NULL  # excluded")))
   
   data <- rawData$val
   dcols <- includedColumnNames(input, rawData, permuteTable)
@@ -746,7 +746,7 @@ dataColumnNames <- function(input, rawData, permuteTable) {
 }
 
 includedColumnNames <- function(input, rawData, permuteTable) {
-  setdiff(dataColumnNames(input, rawData, permuteTable), rawData$exclude)
+  setdiff(dataColumnNames(input, rawData, permuteTable), permuteTable$exclude)
 }
 
 setupItemModels <- function(input, rawData, itemModel, outcomes) {
@@ -804,9 +804,9 @@ shinyServer(function(input, output, session) {
   feedback <- reactiveValues(newOutcomeAction="", resetRecodeAction="",
                              focusedOutcomeMapAction="", codingFile="",
                              focusedParameterPrior="", parseFile="")
-  rawData <- reactiveValues(val=NULL, name=NULL, exclude=NULL)
+  rawData <- reactiveValues(val=NULL, name=NULL)
   recodeTable <- reactiveValues(val=NULL)
-  permuteTable <- reactiveValues(val=NULL, items=NULL, reversed=NULL)
+  permuteTable <- reactiveValues(val=NULL, items=NULL, reversed=NULL, exclude=NULL)
   itemModel <- reactiveValues()  # colname to list(model, Ta, Tc, startingValues, free, labels)
   bayesianPrior <- reactiveValues(map=list())  # label -> value map
 
@@ -826,7 +826,6 @@ shinyServer(function(input, output, session) {
       rawData$loadDemo <- loader
       rawData$stem <- "kct"
       rawData$val <- data
-      rawData$exclude <- c("X1x1x4", "X2x2x3", "X3x1x2x4", "X18x4x1x3x4x2x1x4")
       
       recodeTable$val <- 
         structure(list(type = structure(c(1L, 1L, 1L, 1L), .Label = "outcomeSet", class = "factor"), 
@@ -842,7 +841,8 @@ shinyServer(function(input, output, session) {
       permuteTable$val <- 
         structure(list("9b162432e63482dee83b819368c73fb4" = c(2L, 1L)),
                   .Names = "9b162432e63482dee83b819368c73fb4")
-      
+      permuteTable$exclude <- c("X1x1x4", "X2x2x3", "X3x1x2x4", "X18x4x1x3x4x2x1x4")
+
       isolate({
         outcomes <- isolate(recodeOutcomes(input, rawData, recodeTable, permuteTable))
         setupItemModels(input, rawData, itemModel, outcomes)
@@ -899,7 +899,6 @@ shinyServer(function(input, output, session) {
     rawData$name <- NULL
     rawData$stem <- "science"
     rawData$val <- data
-    rawData$exclude <- 'GOTOMUSEUM'
     
     recodeTable$val <- 
       structure(list(type = structure(1L, .Label = "outcomeSet", class = "factor"), 
@@ -911,6 +910,7 @@ shinyServer(function(input, output, session) {
     permuteTable$val <- 
       structure(list("37cba13974a597e56737c53035b1a6f0" = c(1L, 3L, 2L)),
                 .Names = "37cba13974a597e56737c53035b1a6f0")
+    permuteTable$exclude <- 'GOTOMUSEUM'
     
     setupFreqColumnName(session, rawData)
   })
@@ -999,7 +999,7 @@ shinyServer(function(input, output, session) {
     hits <- input$selectAllItemsAction
     if (hits == 0) return()
     
-    ch <- isolate(dataColumnNames(input, rawData, permuteTable))
+    ch <- isolate(includedColumnNames(input, rawData, permuteTable))
     if (length(ch) == 0) return()
     updateSelectInput(session, "focusedItemStart", selected=ch[[1]])
     updateSelectInput(session, "focusedItemEnd", selected=ch[[ length(ch) ]])
@@ -1587,7 +1587,7 @@ shinyServer(function(input, output, session) {
   
   output$excludePicker <- renderUI({
     cols <- dataColumnNames(input, rawData, permuteTable)
-    exNames <- isolate(rawData$exclude)
+    exNames <- isolate(permuteTable$exclude)
     emask <- !is.na(match(cols, exNames))
     chooserInput("excludeChooser", "Included", "Excluded",
                  cols[!emask], cols[emask], size = 16, multiple = TRUE)
@@ -1597,12 +1597,12 @@ shinyServer(function(input, output, session) {
     got <- input$excludeChooser
     if (is.null(got)) return()
     
-    oldRev <- isolate(rawData$exclude)
+    oldRev <- isolate(permuteTable$exclude)
     newRev <- setdiff(union(oldRev, got$right), got$left)
     if (length(oldRev) == length(newRev) && all(oldRev == newRev)) return()
     
     if (verbose) cat("exclude chooser", paste(newRev, collapse=","), fill=TRUE)
-    rawData$exclude <- newRev
+    permuteTable$exclude <- newRev
   })
   
   output$itemModelAssignment <- renderTable({
@@ -1614,7 +1614,7 @@ shinyServer(function(input, output, session) {
       c(Outcomes=length(col),
         Model=im$model, T.a=im$Ta, T.c=im$Tc,
         Reversed=cname %in% permuteTable$reversed,
-        Excluded=cname %in% rawData$exclude)
+        Excluded=cname %in% permuteTable$exclude)
     }, outcomes, names(outcomes), SIMPLIFY=FALSE)
     tbl <- t(mxSimplify2Array(massign))
     for (bcol in c('Reversed','Excluded')) {
