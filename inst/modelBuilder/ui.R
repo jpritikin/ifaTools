@@ -20,7 +20,7 @@ shinyUI(navbarPage(
                      c(Comma=',',
                        Semicolon=';',
                        Tab='\t',
-                       Whitespace=' '),
+                       Whitespace=''),
                      ','),
         radioButtons('dataQuote', 'Quote',
                      c(None='',
