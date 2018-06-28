@@ -40,12 +40,12 @@ The general pattern is given in Bock, Gibbons, & Muraki.
 \examples{
 numItems <- 6
 spec <- list()
-spec[1:numItems] <- rpf.drm(factors=2)
+spec[1:numItems] <- list(rpf.drm(factors=2))
 names(spec) <- paste0("i", 1:numItems)
 item <- mxMatrix(name="item", free=TRUE,
                  values=mxSimplify2Array(lapply(spec, rpf.rparam)))
 item$labels[1:2,] <- paste0('p',1:(numItems * 2))
-data <- rpf.sample(500, spec, item$values)
+data <- rpf.sample(100, spec, item$values)  # use a larger sample size
 m1 <- mxModel(model="m1", item,
               mxData(observed=data, type="raw"),
               mxExpectationBA81(spec),
