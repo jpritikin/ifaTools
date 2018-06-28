@@ -29,4 +29,3 @@ replicateModelBy(tmpl, fullData, mMat, covMat, ..., splitCol = "population",
 \description{
 The reference group is fixed to a zero mean and identity covariance matrix.
 }
-

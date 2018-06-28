@@ -40,4 +40,3 @@ model$output$fit
 model$output$gradient
 model$output$hessian
 }
-

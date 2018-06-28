@@ -14,4 +14,3 @@ A Shiny app for building IFA models
 modelBuilder()  # will launch a browser in RStudio
 }
 }
-

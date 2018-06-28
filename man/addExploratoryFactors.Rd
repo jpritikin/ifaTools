@@ -18,4 +18,3 @@ addExploratoryFactors(model, toAdd, ..., addUniquenessPrior = TRUE)
 \description{
 Adds exploratory factors to a single factor model
 }
-

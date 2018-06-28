@@ -21,4 +21,3 @@ without any observations are omitted.
 Categories are placed at the mean score of the examinees who picked
 that category.
 }
-

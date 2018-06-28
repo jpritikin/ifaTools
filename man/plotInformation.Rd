@@ -21,4 +21,3 @@ plotInformation(grp, ..., width = 3, showTotal = FALSE, basis = c(1))
 For multidimensional items, you will need to supply a basis
 vector. This vector is normalized to unit length.
 }
-

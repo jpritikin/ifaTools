@@ -18,4 +18,3 @@ SitemPlot(sout, itemName, ..., showSampleSize = TRUE)
 \description{
 Plot expected and observed table from SitemFit
 }
-

@@ -25,4 +25,3 @@ iccPlot(grp, itemName, ..., width = 3, dataBins = 11, basis = c(1),
 \description{
 WARNING: This function is under development. The API may change in a future release.
 }
-

@@ -64,4 +64,3 @@ container$output$gradient
 Bock, R. D., Gibbons, R., & Muraki, E. (1988). Full-information item factor analysis.
 \emph{Applied Psychological Measurement, 12}(3), 261-280.
 }
-

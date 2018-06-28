@@ -14,4 +14,3 @@ A Shiny app to experiment with item models
 itemModelExplorer()  # will launch a browser in RStudio
 }
 }
-
