@@ -378,8 +378,7 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
     maybeCompress <- "data <- compressDataFrame(data)"
     freqCol <- "freq"
   }
-  freqExpectationArgs <- paste0(", weightColumn='", freqCol,"'")
-  freqDataArgs <- paste0(", numObs=sum(data[['", freqCol,"']]), sort=FALSE")
+  freqDataArgs <- paste0(", weight='", freqCol,"'")
   numExtraCol <- 1
   
   getRefModels <- ""
@@ -477,7 +476,7 @@ plotInformation(m1Grp, width=5, basis=basis)
     maybeCompress,
     paste0("itemModel <- mxModel(model='itemModel', imat,
            mxData(observed=data, type='raw'", freqDataArgs, "),
-           mxExpectationBA81(ItemSpec=spec", freqExpectationArgs, "),
+           mxExpectationBA81(ItemSpec=spec),
            mxFitFunctionML())"),
     priorInit,
     "",
