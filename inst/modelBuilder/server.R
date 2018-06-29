@@ -544,7 +544,7 @@ execRecodeRule <- function(rc, outcomes) {
 recodeOutcomes <- function(input, rawData, recodeTable, permuteTable) {
   dat <- rawData$val
   if (is.null(dat)) return(NULL)
-  ch <- dataColumnNames(input, rawData, permuteTable)
+  ch <- includedColumnNames(input, rawData, permuteTable)
   outcomes <- lapply(dat[,ch], function(col) {
     sort(unique(col))
   })
