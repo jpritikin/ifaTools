@@ -42,7 +42,7 @@ test_that("uniquenessPrior", {
   imat$free[3,] <- FALSE
   
   spec <- list()
-  spec[1:3] <- rpf.grm(factors=2)
+  spec[1:3] <- list(rpf.grm(factors=2))
   
   m1 <- mxModel("test", imat,
                 mxExpectationBA81(spec))

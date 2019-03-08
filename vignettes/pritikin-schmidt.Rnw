@@ -823,11 +823,10 @@ for (lab1 in unique(imat$labels[hasLabel])) {
   imat$values[hasLabel & imat$labels == lab1] <- 
     sample(imat$values[hasLabel & imat$labels == lab1], 1)
 }
-data <- compressDataFrame(data)
+data <- compressDataFrame(data, .asNumeric=TRUE)
 itemModel <- mxModel(model = 'itemModel', imat,
-  mxData(observed = data, type = 'raw',
-    numObs = sum(data[['freq']]), sort = FALSE),
-  mxExpectationBA81(ItemSpec = spec, weightColumn = 'freq'),
+  mxData(observed = data, type = 'raw', weight = 'freq'),
+  mxExpectationBA81(ItemSpec = spec),
   mxFitFunctionML())
 
 priorLabels <- c("V1_g", "V2_g", "V3_g", "V4_g", "V5_g", "V6_g")
@@ -900,10 +899,10 @@ for (lab1 in unique(imat$labels[hasLabel])) {
   imat$values[hasLabel & imat$labels==lab1] <- 
     sample(imat$values[hasLabel & imat$labels==lab1], 1)
 }
-data <- compressDataFrame(data)
+data <- compressDataFrame(data, .asNumeric=TRUE)
 itemModel <- mxModel(model='itemModel', imat,
-           mxData(observed=data, type='raw', numObs=sum(data[['freq']]), sort=FALSE),
-           mxExpectationBA81(ItemSpec=spec, weightColumn='freq'),
+           mxData(observed=data, type='raw', , weight='freq'),
+           mxExpectationBA81(ItemSpec=spec),
            mxFitFunctionML())
 
 priorLabels <- c("V1_g", "V2_g", "V3_g", "V4_g", "V5_g", "V6_g")
