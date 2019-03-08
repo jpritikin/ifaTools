@@ -3,7 +3,7 @@ Date: 2019-03-08
 Title: Toolkit for Item Factor Analysis with 'OpenMx'
 Authors@R: c(person(c("Joshua","N."), family="Pritikin",
     email="jpritikin@pobox.com", role=c('cre','aut')))
-Version: 0.18
+Version: 0.19
 Description: Tools, tutorials, and demos of Item Factor Analysis using 'OpenMx'.
 LazyData: yes
 LazyDataCompression: bzip2
