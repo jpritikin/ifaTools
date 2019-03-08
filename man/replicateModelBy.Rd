@@ -4,8 +4,9 @@
 \alias{replicateModelBy}
 \title{Replicate a model for each group of data}
 \usage{
-replicateModelBy(tmpl, fullData, mMat, covMat, ..., splitCol = "population",
-  refGroup = "general", split = TRUE, compressData = TRUE)
+replicateModelBy(tmpl, fullData, mMat, covMat, ...,
+  splitCol = "population", refGroup = "general", split = TRUE,
+  compressData = TRUE)
 }
 \arguments{
 \item{tmpl}{an OpenMx model}

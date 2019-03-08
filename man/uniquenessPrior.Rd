@@ -4,7 +4,8 @@
 \alias{uniquenessPrior}
 \title{Uniqueness prior to assist in item factor analysis}
 \usage{
-uniquenessPrior(model, numFactors, strength = 0.1, name = "uniquenessPrior")
+uniquenessPrior(model, numFactors, strength = 0.1,
+  name = "uniquenessPrior")
 }
 \arguments{
 \item{model}{an mxModel}
