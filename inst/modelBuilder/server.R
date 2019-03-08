@@ -214,7 +214,8 @@ toScript <- function(input, rawData, recodeTable, permuteTable, itemModel, bayes
   }
   
   loadData <- c(loadData,
-                sapply(permuteTable$exclude, function(col) paste0("\ndata[['", col, "']] <- NULL  # excluded")))
+	  sapply(setdiff(permuteTable$exclude, input$freqColumnName),
+		  function(col) paste0("\ndata[['", col, "']] <- NULL  # excluded")))
   
   data <- rawData$val
   dcols <- includedColumnNames(input, rawData, permuteTable)
