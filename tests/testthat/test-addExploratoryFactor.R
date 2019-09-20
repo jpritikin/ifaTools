@@ -7,7 +7,7 @@ set.seed(1)
 
 context("addExploratoryFactor")
 
-print(getwd())
+#print(getwd())
 
 data <- read.csv(file='g341-19.csv',
                  header=FALSE,sep='',quote="",
