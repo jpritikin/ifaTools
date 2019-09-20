@@ -74,8 +74,9 @@ container <- mxModel(container, computePlan)
 test_that("addExploratoryFactors", {
   m1 <- addExploratoryFactors(container, 0)
   m1 <- mxRun(m1, silent=TRUE)
+  expect_equal(m1$output$fit, 33454.39, .1)
+  
   m2 <- addExploratoryFactors(container, 1)
   m2 <- mxRun(m2, silent=TRUE)
-
-  expect_equal(m1$output$fit - m2$output$fit, 115.39, .1)
+  expect_equal(m2$output$fit, 33338.99, .1)
 })
