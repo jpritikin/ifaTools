@@ -4,7 +4,7 @@ shinyUI(pageWithSidebar(
     selectInput('model', 'Item Model:', c("dichotomous", "graded", "nominal")),
     conditionalPanel(
       condition = "input.model != 'dichotomous'",
-      sliderInput("outcomes", "Outcomes:", min=3, max=20, value=5)),
+      sliderInput("outcomes", "Outcomes:", min=2, max=20, value=5)),
     conditionalPanel(
       condition = "input.model == 'nominal'",
       selectInput("nominalTa", "T.a matrix:", c("trend", "id")),
