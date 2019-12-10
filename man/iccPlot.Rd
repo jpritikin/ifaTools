@@ -4,8 +4,7 @@
 \alias{iccPlot}
 \title{Plot expected and observed table from SitemFit}
 \usage{
-iccPlot(grp, itemName, ..., width = 3, dataBins = 11, basis = c(1),
-  factor = 1)
+iccPlot(grp, itemName, ..., width = 3, dataBins = 11, basis = c(1), factor = 1)
 }
 \arguments{
 \item{grp}{an IFA group}

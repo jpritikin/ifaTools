@@ -4,8 +4,7 @@
 \alias{univariatePrior}
 \title{Univariate priors commonly used in IFA models}
 \usage{
-univariatePrior(type, labels, mode, strength = NULL,
-  name = "univariatePrior")
+univariatePrior(type, labels, mode, strength = NULL, name = "univariatePrior")
 }
 \arguments{
 \item{type}{one of c("lnorm","beta","logit-norm")}
