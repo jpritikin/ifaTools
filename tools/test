@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if ! test -x util/test; then
+if ! test -x tools/test; then
   echo "$0: Error, run from the top level"
   exit 1
 fi

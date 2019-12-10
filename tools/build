@@ -4,7 +4,7 @@ set -o errexit
 set -o nounset
 set -o noclobber
 
-if [ ! -e ./util/build ]; then
+if [ ! -e ./tools/build ]; then
   echo "$0 must be run from the top of the project tree"
   exit
 fi
@@ -15,5 +15,5 @@ mkdir staging
 git archive --format=tar HEAD | (cd staging; tar -xf -)
 cd staging
 
-./util/rox
+./tools/rox
 GS_QUALITY=ebook R CMD build --compact-vignettes=both .

@@ -4,7 +4,7 @@ set -o errexit
 set -o nounset
 set -o noclobber
 
-if [ ! -e ./util/install ]; then
+if [ ! -e ./tools/install ]; then
   echo "$0 must be run from the top of the project tree"
   exit
 fi

@@ -4,12 +4,12 @@ set -o errexit
 set -o nounset
 set -o noclobber
 
-if [ ! -e ./util/check ]; then
+if [ ! -e ./tools/check ]; then
   echo "$0 must be run from the top of the project tree"
   exit
 fi
 
-./util/build
+./tools/build
 cd staging
 
 cran=--as-cran
