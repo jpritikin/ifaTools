@@ -73,10 +73,25 @@ container <- mxModel(container, computePlan)
 
 test_that("addExploratoryFactors", {
   m1 <- addExploratoryFactors(container, 0)
-  m1 <- mxRun(m1, silent=TRUE)
-  expect_equal(m1$output$fit, 33454.39, .1)
+  m1 <- mxRun(m1, silent=TRUE)  # not 100% reliable
+  #cat(deparse(round(coef(m1),2)))
+  pt1 <- c(p1 = 1.81, p2 = -0.51, V1_g = -1.14, p3 = 1.24, p4 = 2.58,  V2_g = -1.28, p5 = 1.55,
+           p6 = -1.03, V3_g = -1.16, p7 = 1.36,  p8 = 0.42, V4_g = -1.1, p9 = 1.41, p10 = -0.46,
+           V5_g = -1.03,  p11 = 1.5, p12 = 1.84, V6_g = -1.43, slope = 1.12, p13 = 3.5,  p14 = 1.57,
+           p15 = 2.7, p16 = 2.27, p17 = -0.28, p18 = 0.15)
+  m1 <- omxSetParameters(m1, names(pt1), values=pt1)
+  m1p <- mxRun(mxModel(m1, mxComputeOnce('fitfunction', 'fit')))
+  expect_equal(m1p$output$fit, 33454.39, .1)
   
   m2 <- addExploratoryFactors(container, 1)
   m2 <- mxRun(m2, silent=TRUE)
-  expect_equal(m2$output$fit, 33338.99, .1)
+  pt2 <- c(p1 = 2.02, p2 = -0.39, V1_g = -1.3, p3 = 0.8, E1p1 = 1.24,  p4 = 2.75, V2_g = -1.18,
+           p5 = 1.4, E1p2 = 0.4, p6 = -0.91, V3_g = -1.25,  p7 = 1.22, E1p3 = 0.47, p8 = 0.51,
+           V4_g = -1.28, p9 = 1.27, E1p4 = 0.61,  p10 = -0.46, V5_g = -1.04, p11 = 1.33, E1p5 = 0.67,
+           p12 = 1.84,  V6_g = -1.41, slope = 0.94, E1p6 = 1.87, p13 = 4.58, E1p7 = 0.43,  p14 = 1.54,
+           E1p8 = 1.73, p15 = 3.46, E1p9 = 1.18, p16 = 2.55,  E1p10 = 0.18, p17 = -0.27, E1p11 = 0.36,
+           p18 = 0.15)
+  m2 <- omxSetParameters(m2, names(pt2), values=pt2)
+  m2p <- mxRun(mxModel(m2, mxComputeOnce('fitfunction', 'fit')))
+  expect_equal(m2p$output$fit, 33338.99, .1)
 })
